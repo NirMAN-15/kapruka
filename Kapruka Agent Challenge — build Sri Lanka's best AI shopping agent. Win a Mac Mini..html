@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<!-- saved from url=(0059)https://www.kapruka.com/contactUs/agentChallenge.html#build -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kapruka Agent Challenge — build Sri Lanka's best AI shopping agent. Win a Mac Mini.</title>
+<meta name="description" content="A competition for Sri Lankan developers: build the most innovative AI shopping agent on the free Kapruka MCP server. Ship a hosted, full-screen chat shopping experience that lets customers browse and checkout. Winner takes an Apple M4 Mac Mini. Entries close end of June 2026.">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Kapruka Agent Challenge">
+<meta property="og:description" content="Build Sri Lanka&#39;s most innovative AI shopping agent on the Kapruka MCP. Win an Apple M4 Mac Mini. For Sri Lankan developers. Entries close end of June 2026.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.kapruka.com/contactUs/agentChallenge.html">
+<meta property="og:image" content="https://www.kapruka.com/static/image/logo.jpg?v2">
+
+<link rel="icon" href="https://www.kapruka.com/favicon.ico">
+
+<script defer="" referrerpolicy="origin" src="./Kapruka Agent Challenge — build Sri Lanka&#39;s best AI shopping agent. Win a Mac Mini._files/s.js.download"></script><script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Event",
+  "name": "Kapruka Agent Challenge",
+  "description": "A competition for Sri Lankan developers to build the most innovative AI shopping agent on the free Kapruka MCP server. Winner receives an Apple M4 Mac Mini.",
+  "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
+  "eventStatus": "https://schema.org/EventScheduled",
+  "startDate": "2026-05-31",
+  "endDate": "2026-06-30",
+  "organizer": {
+    "@type": "Organization",
+    "name": "Kapruka Holdings PLC",
+    "url": "https://www.kapruka.com/"
+  },
+  "location": {
+    "@type": "VirtualLocation",
+    "url": "https://mcp.kapruka.com/"
+  }
+}
+</script>
+
+<style>
+  :root {
+    --brand:        #402970;
+    --brand-deep:   #2d1d50;
+    --brand-soft:   #f7f5fa;
+    --accent:       #f8da08;
+    --ink:          #1c1c1c;
+    --ink-soft:     #5f5f5f;
+    --line:         #e3e1ea;
+    --code-bg:      #1d1530;
+    --code-ink:     #e9e4f5;
+    --ok:           #1a8a3d;
+    --radius:       12px;
+    --shadow:       0 1px 2px rgba(64, 41, 112, 0.06), 0 6px 24px rgba(64, 41, 112, 0.08);
+    --mono:         ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans:         -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--sans);
+    color: var(--ink);
+    background: var(--brand-soft);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── Header ─────────────────────────────────────────────────────────── */
+  header { padding: 24px 0 8px; }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--brand); font-weight: 700; font-size: 18px; letter-spacing: -0.01em;
+  }
+  .brand img { height: 36px; width: auto; display: block; border-radius: 6px; }
+  .brand .sep { width: 1px; height: 22px; background: var(--line); }
+  .brand .product { font-weight: 600; color: var(--ink); }
+  .tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; background: #fff7cc; color: var(--brand-deep);
+    border: 1px solid #f0e08a;
+    border-radius: 999px; font-size: 13px; font-weight: 700;
+  }
+
+  /* ── Hero ───────────────────────────────────────────────────────────── */
+  .hero-wrap {
+    background:
+      radial-gradient(1100px 460px at 80% -10%, rgba(248, 218, 8, 0.16), transparent 60%),
+      linear-gradient(165deg, var(--brand-deep) 0%, var(--brand) 70%);
+    color: #fff;
+    border-radius: 20px;
+    margin: 16px 0 8px;
+    padding: 52px 44px 48px;
+    box-shadow: var(--shadow);
+    position: relative; overflow: hidden;
+  }
+  .hero-wrap .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.12); color: #fff;
+    border: 1px solid rgba(255,255,255,0.22);
+    padding: 6px 14px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    margin-bottom: 22px;
+  }
+  .hero-wrap h1 {
+    font-size: clamp(34px, 5.4vw, 56px);
+    line-height: 1.05; letter-spacing: -0.03em;
+    margin: 0 0 18px; max-width: 760px;
+  }
+  .hero-wrap h1 .y { color: var(--accent); }
+  .hero-wrap .lede {
+    font-size: 19px; color: rgba(255,255,255,0.86);
+    max-width: 620px; margin: 0 0 30px;
+  }
+  .hero-wrap .lede strong { color: #fff; font-weight: 600; }
+  .cta-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    appearance: none; cursor: pointer; border: 0;
+    font-family: var(--sans); font-weight: 700; font-size: 16px;
+    padding: 14px 26px; border-radius: 10px;
+    transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s;
+    display: inline-flex; align-items: center; gap: 9px;
+  }
+  .btn:hover { text-decoration: none; transform: translateY(-1px); }
+  .btn-primary {
+    background: var(--accent); color: var(--brand-deep);
+    box-shadow: 0 6px 18px rgba(248, 218, 8, 0.32);
+  }
+  .btn-primary:hover { box-shadow: 0 10px 26px rgba(248, 218, 8, 0.42); }
+  .btn-ghost {
+    background: rgba(255,255,255,0.10); color: #fff;
+    border: 1px solid rgba(255,255,255,0.26);
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.18); }
+  .hero-meta {
+    margin-top: 26px; display: flex; gap: 24px; flex-wrap: wrap;
+    font-size: 13.5px; color: rgba(255,255,255,0.78);
+  }
+  .hero-meta span::before { content: "★"; color: var(--accent); margin-right: 8px; }
+
+  /* ── Sections ───────────────────────────────────────────────────────── */
+  section { padding: 40px 0; }
+  section h2 {
+    font-size: 26px; letter-spacing: -0.02em; color: var(--brand-deep);
+    margin: 0 0 8px;
+  }
+  section .kicker {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em;
+    color: var(--brand); text-transform: uppercase; margin: 0 0 10px;
+  }
+  section .section-lede { color: var(--ink-soft); margin: 0 0 26px; max-width: 660px; font-size: 16.5px; }
+
+  .card {
+    background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  /* ── Prize ──────────────────────────────────────────────────────────── */
+  .prize {
+    display: grid; grid-template-columns: 1.1fr 1fr; gap: 0;
+    overflow: hidden;
+  }
+  .prize .left { padding: 36px 36px 36px; }
+  .prize .left h2 { margin-top: 0; }
+  .prize .badge {
+    display: inline-block; background: var(--brand-soft); color: var(--brand);
+    font-weight: 700; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 5px 12px; border-radius: 999px; margin-bottom: 16px;
+  }
+  .prize ul { margin: 18px 0 0; padding: 0; list-style: none; }
+  .prize ul li { padding: 7px 0; color: var(--ink-soft); font-size: 14.5px; border-bottom: 1px dashed var(--line); }
+  .prize ul li:last-child { border-bottom: 0; }
+  .prize ul li strong { color: var(--ink); }
+  .prize .right {
+    background: linear-gradient(165deg, #14101f 0%, var(--brand-deep) 100%);
+    color: #fff; padding: 36px; display: flex; flex-direction: column; justify-content: center;
+  }
+  .prize .right .pname { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .prize .right .pbig { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; margin: 8px 0 6px; line-height: 1.1; }
+  .prize .right .pval { font-size: 14px; color: rgba(255,255,255,0.7); }
+  .prize .right .note { margin-top: 22px; font-size: 13px; color: rgba(255,255,255,0.66); border-top: 1px solid rgba(255,255,255,0.14); padding-top: 16px; }
+
+  /* ── Feature grids ──────────────────────────────────────────────────── */
+  .grid3 {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+  .feature { padding: 24px; }
+  .feature .icon {
+    width: 42px; height: 42px; border-radius: 11px; background: var(--brand-soft);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 21px; margin-bottom: 14px;
+  }
+  .feature h3 { margin: 0 0 8px; font-size: 16.5px; color: var(--brand-deep); letter-spacing: -0.01em; }
+  .feature p { margin: 0; font-size: 14.5px; color: var(--ink-soft); }
+
+  /* ── Steps ──────────────────────────────────────────────────────────── */
+  .steps { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .step { padding: 24px; position: relative; }
+  .step .num {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--brand); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; margin-bottom: 14px;
+  }
+  .step h3 { margin: 0 0 6px; font-size: 16px; color: var(--brand-deep); }
+  .step p { margin: 0; font-size: 14px; color: var(--ink-soft); }
+  .step p code {
+    font-family: var(--mono); font-size: 12.5px; background: var(--brand-soft);
+    color: var(--brand-deep); padding: 1px 6px; border-radius: 4px;
+  }
+
+  /* ── Code / resources ───────────────────────────────────────────────── */
+  .endpoint { padding: 22px 24px; margin-bottom: 16px; }
+  .endpoint-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: var(--brand); text-transform: uppercase; margin-bottom: 10px; }
+  .endpoint-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .endpoint-url { font-family: var(--mono); font-size: 16px; color: var(--ink); font-weight: 600; word-break: break-all; flex: 1; }
+  .copy-btn {
+    appearance: none; border: 1px solid var(--line); background: white;
+    color: var(--brand); font-weight: 600; font-size: 13px;
+    padding: 8px 14px; border-radius: 8px; cursor: pointer; font-family: var(--sans);
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { background: var(--brand); color: white; border-color: var(--brand); }
+  .copy-btn.copied { background: var(--ok); color: white; border-color: var(--ok); }
+  .code-wrap { position: relative; margin: 0; }
+  pre {
+    margin: 0; background: var(--code-bg); color: var(--code-ink);
+    border-radius: var(--radius); padding: 18px 20px; overflow-x: auto;
+    font-family: var(--mono); font-size: 13px; line-height: 1.55;
+  }
+  pre code { color: inherit; }
+  .code-wrap .copy-btn {
+    position: absolute; top: 10px; right: 10px;
+    background: rgba(255,255,255,0.06); color: var(--code-ink); border-color: rgba(255,255,255,0.12);
+  }
+  .code-wrap .copy-btn:hover { background: var(--accent); color: var(--brand-deep); border-color: var(--accent); }
+  .reslinks { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 18px; }
+  .reslink {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--line); background: #fff; border-radius: 10px;
+    padding: 11px 16px; font-weight: 600; font-size: 14px; color: var(--brand);
+  }
+  .reslink:hover { text-decoration: none; border-color: var(--brand); background: var(--brand-soft); }
+
+  /* ── Rules / lists ──────────────────────────────────────────────────── */
+  .listcard { padding: 26px 28px; }
+  .listcard h3 { margin: 0 0 14px; font-size: 17px; color: var(--brand-deep); }
+  .listcard ul { margin: 0; padding-left: 20px; }
+  .listcard li { margin: 9px 0; color: var(--ink-soft); font-size: 14.5px; }
+  .listcard li strong { color: var(--ink); }
+
+  /* ── Scoring rubric ─────────────────────────────────────────────────── */
+  .rubric { padding: 10px 28px 22px; }
+  .rubric .rrow {
+    display: grid; grid-template-columns: 200px 1fr 56px; gap: 16px;
+    align-items: center; padding: 16px 0; border-bottom: 1px solid var(--line);
+  }
+  .rubric .rrow:last-child { border-bottom: 0; }
+  .rubric .rname { font-weight: 700; color: var(--brand-deep); font-size: 15px; }
+  .rubric .rname small { display: block; font-weight: 500; color: var(--ink-soft); font-size: 12.5px; margin-top: 2px; }
+  .rubric .rbar { background: var(--brand-soft); border-radius: 999px; height: 10px; overflow: hidden; }
+  .rubric .rbar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--brand) 0%, #6a4caf 100%); border-radius: 999px; }
+  .rubric .rwt { text-align: right; font-weight: 800; color: var(--brand); font-size: 17px; font-variant-numeric: tabular-nums; }
+  .rubric .rtotal {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 0 2px; margin-top: 4px; border-top: 2px solid var(--brand);
+    font-weight: 800; color: var(--brand-deep);
+  }
+  .rubric .rtotal .rwt { color: var(--brand-deep); }
+  @media (max-width: 560px) {
+    .rubric .rrow { grid-template-columns: 1fr 48px; }
+    .rubric .rbar { display: none; }
+  }
+
+  /* ── Bonus ──────────────────────────────────────────────────────────── */
+  .bonus {
+    margin-top: 16px; padding: 26px 28px;
+    background:
+      radial-gradient(600px 200px at 90% -20%, rgba(248, 218, 8, 0.18), transparent 60%),
+      #fffdf2;
+    border: 1px solid #f0e08a; border-radius: var(--radius);
+  }
+  .bonus h3 { margin: 0 0 6px; font-size: 17px; color: var(--brand-deep); display: flex; align-items: center; gap: 9px; }
+  .bonus .bsub { margin: 0 0 16px; color: var(--ink-soft); font-size: 14.5px; }
+  .bonus .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .bonus .chip {
+    background: #fff; border: 1px solid #ecd97a; border-radius: 999px;
+    padding: 9px 15px; font-size: 13.5px; font-weight: 600; color: var(--brand-deep);
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .bonus .chip.star { background: var(--brand-deep); color: #fff; border-color: var(--brand-deep); }
+  .bonus .chip.star .em { filter: saturate(1.4); }
+
+  /* ── Timeline ───────────────────────────────────────────────────────── */
+  .timeline { padding: 28px 30px; }
+  .timeline .row {
+    display: flex; gap: 18px; padding: 14px 0; border-bottom: 1px solid var(--line);
+    align-items: baseline;
+  }
+  .timeline .row:last-child { border-bottom: 0; }
+  .timeline .when { font-weight: 700; color: var(--brand); min-width: 150px; font-size: 14.5px; }
+  .timeline .what { color: var(--ink-soft); font-size: 14.5px; }
+  .timeline .what strong { color: var(--ink); }
+
+  /* ── FAQ ────────────────────────────────────────────────────────────── */
+  .faq details {
+    background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 4px 20px; margin-bottom: 12px;
+  }
+  .faq summary {
+    cursor: pointer; font-weight: 600; color: var(--brand-deep); padding: 14px 0;
+    font-size: 15.5px; list-style: none; display: flex; justify-content: space-between; align-items: center;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: "+"; color: var(--brand); font-size: 22px; font-weight: 400; }
+  .faq details[open] summary::after { content: "–"; }
+  .faq details p { margin: 0 0 16px; color: var(--ink-soft); font-size: 14.5px; }
+
+  /* ── Final CTA ──────────────────────────────────────────────────────── */
+  .finalcta {
+    background: linear-gradient(165deg, var(--brand) 0%, var(--brand-deep) 100%);
+    color: #fff; border-radius: 20px; padding: 48px 40px; text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .finalcta h2 { color: #fff; font-size: 30px; margin: 0 0 12px; letter-spacing: -0.02em; }
+  .finalcta p { color: rgba(255,255,255,0.82); margin: 0 0 26px; font-size: 17px; }
+  .finalcta .btn-primary { font-size: 17px; padding: 16px 32px; }
+
+  footer {
+    margin-top: 8px; padding: 30px 0; color: var(--ink-soft); font-size: 13px;
+  }
+  footer .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+  footer a { color: var(--brand); }
+
+  @media (max-width: 720px) {
+    .hero-wrap { padding: 36px 24px; }
+    .prize { grid-template-columns: 1fr; }
+    .timeline .row { flex-direction: column; gap: 4px; }
+    .timeline .when { min-width: 0; }
+  }
+</style>
+<script data-cfasync="false" nonce="4a9b6152-e277-4450-b171-44c746660fab">try{(function(w,d){!function(j,k,l,m){if(j.zaraz)console.error("zaraz is loaded twice");else{j[l]=j[l]||{};j[l].executed=[];j.zaraz={deferred:[],listeners:[]};j.zaraz._v="5884";j.zaraz._n="4a9b6152-e277-4450-b171-44c746660fab";j.zaraz.q=[];j.zaraz._f=function(n){return async function(){var o=Array.prototype.slice.call(arguments);j.zaraz.q.push({m:n,a:o})}};for(const p of["track","set","debug"])j.zaraz[p]=j.zaraz._f(p);j.zaraz.init=()=>{var q=k.getElementsByTagName(m)[0],r=k.createElement(m),s=k.getElementsByTagName("title")[0];s&&(j[l].t=k.getElementsByTagName("title")[0].text);j[l].x=Math.random();j[l].w=j.screen.width;j[l].h=j.screen.height;j[l].j=j.innerHeight;j[l].e=j.innerWidth;j[l].l=j.location.href;j[l].r=k.referrer;j[l].k=j.screen.colorDepth;j[l].n=k.characterSet;j[l].o=(new Date).getTimezoneOffset();if(j.dataLayer)for(const t of Object.entries(Object.entries(dataLayer).reduce((u,v)=>({...u[1],...v[1]}),{})))zaraz.set(t[0],t[1],{scope:"page"});j[l].q=[];for(;j.zaraz.q.length;){const w=j.zaraz.q.shift();j[l].q.push(w)}r.defer=!0;for(const x of[localStorage,sessionStorage])Object.keys(x||{}).filter(z=>z.startsWith("_zaraz_")).forEach(y=>{try{j[l]["z_"+y.slice(7)]=JSON.parse(x.getItem(y))}catch{j[l]["z_"+y.slice(7)]=x.getItem(y)}});r.referrerPolicy="origin";r.src="/cdn-cgi/zaraz/s.js?z="+btoa(encodeURIComponent(JSON.stringify(j[l])));q.parentNode.insertBefore(r,q)};["complete","interactive"].includes(k.readyState)?zaraz.init():j.addEventListener("DOMContentLoaded",zaraz.init)}}(w,d,"zarazData","script");window.zaraz._p=async A=>new Promise(B=>{if(A){A.e&&A.e.forEach(C=>{try{const D=d.querySelector("script[nonce]"),E=D?.nonce||D?.getAttribute("nonce"),F=d.createElement("script");E&&(F.nonce=E);F.innerHTML=C;F.onload=()=>{d.head.removeChild(F)};d.head.appendChild(F)}catch(G){console.error(`Error executing script: ${C}\n`,G)}});Promise.allSettled((A.f||[]).map(H=>fetch(H[0],H[1])))}B()});zaraz._p({"e":["(function(w,d){})(window,document)"]});})(window,document)}catch(e){throw fetch("/cdn-cgi/zaraz/t"),e;};</script><script>(function(w,d){})(window,document)</script><script>(function(w,d){;w.zarazData.executed.push("Pageview");})(window,document)</script><script>(function(w,d){})(window,document)</script><script>(function(w,d){{(function(w,d){zaraz.__zarazMCListeners={"google-analytics_v4_GFUm":["visibilityChange"]};})(window,document);}})(window,document)</script><script>(function(w,d){{(function(w,d){zaraz.__zarazMCListeners={"google-analytics_v4_GFUm":["visibilityChange"]};})(window,document);}})(window,document)</script></head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="topbar">
+      <a class="brand" href="https://www.kapruka.com/" target="_blank" rel="noopener">
+        <img src="./Kapruka Agent Challenge — build Sri Lanka&#39;s best AI shopping agent. Win a Mac Mini._files/logo.jpg" alt="Kapruka">
+        <span class="sep"></span>
+        <span class="product">Agent Challenge</span>
+      </a>
+      <span class="tag">🇱🇰 For Sri Lankan developers</span>
+    </div>
+  </header>
+
+  <!-- ── HERO ─────────────────────────────────────────────────────────── -->
+  <div class="hero-wrap">
+    <span class="pill">Kapruka Agent Challenge · 2026</span>
+    <h1>Build Sri Lanka's most innovative <span class="y">AI shopping agent.</span></h1>
+    <p class="lede">
+      We opened up the <strong>Kapruka MCP</strong> — the same tools that power search, delivery
+      and checkout across Sri Lanka's largest e-commerce platform. Your mission: turn it into a
+      <strong>beautiful, full-screen chat shopping experience</strong> that real customers would love to use.
+      The best one wins an <strong>Apple M4 Mac Mini</strong>.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary apply-btn" href="https://www.kapruka.com/contactUs/agentChallengeApply.html">Enter the Challenge →</a>
+      <a class="btn btn-ghost" href="https://www.kapruka.com/contactUs/agentChallenge.html#build">See what to build</a>
+    </div>
+    <div class="hero-meta">
+      <span>Free, public MCP — no API key</span>
+      <span>Judged by the Kapruka tech team</span>
+      <span>Entries close 30 June 2026</span>
+    </div>
+  </div>
+
+  <!-- ── THE OPPORTUNITY ──────────────────────────────────────────────── -->
+  <section>
+    <p class="kicker">Why this matters</p>
+    <h2>Real infrastructure. Real customers. Real stakes.</h2>
+    <p class="section-lede">
+      This isn't a toy hackathon dataset. The Kapruka MCP connects to live products, live delivery
+      quotes and live guest checkout. Whatever you build is something you can ship, demo to anyone,
+      and put on your résumé — agentic commerce is one of the most in-demand skills in the world right now,
+      and almost nobody has done it on Sri Lankan retail. Be first.
+    </p>
+    <div class="grid3">
+      <div class="card feature">
+        <div class="icon">🛒</div>
+        <h3>Production e-commerce</h3>
+        <p>Search a real catalog, browse categories, quote delivery to any Sri Lankan address, and create real guest-checkout orders with pay links.</p>
+      </div>
+      <div class="card feature">
+        <div class="icon">⚡</div>
+        <h3>Zero setup friction</h3>
+        <p>The MCP is free and public. No sign-up, no API key, no rate-limit paperwork. Point your agent at one URL and start building today.</p>
+      </div>
+      <div class="card feature">
+        <div class="icon">🏆</div>
+        <h3>Seen by Kapruka</h3>
+        <p>Our engineering team judges every entry. The standout could shape how Kapruka itself does conversational shopping.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── WHAT TO BUILD ────────────────────────────────────────────────── -->
+  <section id="build">
+    <p class="kicker">The brief</p>
+    <h2>What you're building</h2>
+    <p class="section-lede">
+      A <strong>hosted, public demo that just works</strong> — a link anyone (including the judges)
+      can open and immediately start shopping. We care less about how it's built and more about how it
+      <em>feels</em>. Surprise us.
+    </p>
+    <div class="grid3">
+      <div class="card feature">
+        <div class="icon">💬</div>
+        <h3>Full-screen chat UI</h3>
+        <p>A polished, immersive conversation as the main surface — not a tiny widget in a corner. Make it feel like the future of shopping.</p>
+      </div>
+      <div class="card feature">
+        <div class="icon">🎨</div>
+        <h3>Very visual</h3>
+        <p>Show products beautifully — images, cards, carousels, rich results. The agent should feel alive, not like a wall of text.</p>
+      </div>
+      <div class="card feature">
+        <div class="icon">😊</div>
+        <h3>Personality</h3>
+        <p>Give your agent a voice and a point of view. Helpful, witty, warm — whatever makes people want to keep chatting.</p>
+      </div>
+      <div class="card feature">
+        <div class="icon">🔎</div>
+        <h3>Genuinely helpful</h3>
+        <p>Help customers discover the right gift or product and guide them confidently from "I'm not sure" to "add to cart".</p>
+      </div>
+      <div class="card feature">
+        <div class="icon">🧾</div>
+        <h3>All the way to checkout</h3>
+        <p>Take the customer through selecting goods, delivery details and a working checkout. Close the loop end to end.</p>
+      </div>
+      <div class="card feature">
+        <div class="icon">🌐</div>
+        <h3>Live on a public URL</h3>
+        <p>Deploy it on a domain or subdomain that stays up. If the judges can't open it, it can't win — so make it reliable.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── HOW TO ENTER ─────────────────────────────────────────────────── -->
+  <section>
+    <p class="kicker">Getting started</p>
+    <h2>How to enter</h2>
+    <div class="steps">
+      <div class="card step">
+        <div class="num">1</div>
+        <h3>Register</h3>
+        <p>Fill in the short entry form below to <strong>register your spot</strong>. It takes about a minute.</p>
+      </div>
+      <div class="card step">
+        <div class="num">2</div>
+        <h3>Connect the MCP</h3>
+        <p>Point your agent at <code>mcp.kapruka.com/mcp</code> and explore the tools — see Resources below.</p>
+      </div>
+      <div class="card step">
+        <div class="num">3</div>
+        <h3>Build &amp; host</h3>
+        <p>Create your shopping agent and deploy it to a public URL that stays up.</p>
+      </div>
+      <div class="card step">
+        <div class="num">4</div>
+        <h3>Submit your demo</h3>
+        <p>Send us your live link before <strong>30 June 2026</strong>. The Kapruka tech team takes it from there.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PRIZE ────────────────────────────────────────────────────────── -->
+  <section>
+    <p class="kicker">The prize</p>
+    <div class="card prize">
+      <div class="left">
+        <span class="badge">Grand prize</span>
+        <h2>Apple M4 Mac Mini</h2>
+        <p class="section-lede" style="margin-bottom:0;">
+          The build machine every developer wants — silent, tiny, and seriously fast.
+          Yours if you build the best shopping agent in the country.
+        </p>
+        <ul>
+          <li><strong>Apple M4 chip</strong> — 10-core CPU, 10-core GPU</li>
+          <li><strong>16-core Neural Engine</strong> — built for on-device AI</li>
+          <li><strong>16GB</strong> unified memory</li>
+          <li><strong>512GB</strong> SSD storage</li>
+          <li><strong>Gigabit Ethernet</strong> + Apple Intelligence</li>
+        </ul>
+      </div>
+      <div class="right">
+        <div class="pname">Winner takes home</div>
+        <div class="pbig">1× M4 Mac&nbsp;Mini</div>
+        <div class="pval">Retail value ≈ USD&nbsp;799</div>
+        <div class="note">
+          One grand prize. In the rare event of a very close call, the judges may add a
+          2nd and 3rd place — but the goal is one clear winner.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── RESOURCES ────────────────────────────────────────────────────── -->
+  <section>
+    <p class="kicker">Resources</p>
+    <h2>Everything you need to start</h2>
+    <p class="section-lede">
+      The MCP is free, public and read-to-write capable (search, categories, delivery, create order, track order).
+      Full docs live at <a href="https://mcp.kapruka.com/" target="_blank" rel="noopener">mcp.kapruka.com</a>.
+    </p>
+
+    <div class="card endpoint">
+      <div class="endpoint-label">MCP endpoint</div>
+      <div class="endpoint-row">
+        <span class="endpoint-url" id="ep">https://mcp.kapruka.com/mcp</span>
+        <button class="copy-btn" data-copy="https://mcp.kapruka.com/mcp">Copy</button>
+      </div>
+    </div>
+
+    <div class="code-wrap">
+      <button class="copy-btn" data-copy="{
+  &quot;mcpServers&quot;: {
+    &quot;kapruka&quot;: {
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [&quot;-y&quot;, &quot;mcp-remote&quot;, &quot;https://mcp.kapruka.com/mcp&quot;]
+    }
+  }
+}">Copy</button>
+      <pre><code>// Claude Desktop — claude_desktop_config.json
+{
+  "mcpServers": {
+    "kapruka": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.kapruka.com/mcp"]
+    }
+  }
+}</code></pre>
+    </div>
+
+    <div class="reslinks">
+      <a class="reslink" href="https://mcp.kapruka.com/" target="_blank" rel="noopener">📖 Full documentation</a>
+      <a class="reslink" href="https://github.com/kapruka/mcp" target="_blank" rel="noopener">💻 Source on GitHub</a>
+      <a class="reslink" href="https://www.kapruka.com/" target="_blank" rel="noopener">🛍️ Browse Kapruka</a>
+    </div>
+  </section>
+
+  <!-- ── RULES ────────────────────────────────────────────────────────── -->
+  <section>
+    <p class="kicker">The fine print</p>
+    <h2>Eligibility &amp; rules</h2>
+    <div class="card listcard">
+      <ul>
+        <li><strong>Open to Sri Lankans</strong> based in Sri Lanka. (This round is local — not for the diaspora.)</li>
+        <li><strong>Solo builders only</strong> — one person, one entry, one prize.</li>
+        <li>Your submission must be a <strong>live, public URL</strong> that works when judged.</li>
+        <li>Build on the <strong>Kapruka MCP</strong>. Use any model, framework or hosting you like.</li>
+        <li>Keep it respectful of customers and the catalog — <strong>no spam, no abuse</strong> of the live order tools.</li>
+        <li>Entries close <strong>30 June 2026</strong>.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── SCORING ──────────────────────────────────────────────────────── -->
+  <section>
+    <p class="kicker">How we score</p>
+    <h2>The rubric — out of 100</h2>
+    <p class="section-lede">
+      No mystery, no vibes-only judging. Here's exactly how the Kapruka tech team
+      scores every entry, and what's worth the most.
+    </p>
+    <div class="card rubric">
+      <div class="rrow">
+        <div class="rname">Experience &amp; polish<small>Does it look and feel genuinely amazing?</small></div>
+        <div class="rbar"><span style="width:100%"></span></div>
+        <div class="rwt">30</div>
+      </div>
+      <div class="rrow">
+        <div class="rname">Visual richness<small>Products shown beautifully — not a wall of text.</small></div>
+        <div class="rbar"><span style="width:67%"></span></div>
+        <div class="rwt">20</div>
+      </div>
+      <div class="rrow">
+        <div class="rname">Personality<small>An agent people actually enjoy talking to.</small></div>
+        <div class="rbar"><span style="width:50%"></span></div>
+        <div class="rwt">15</div>
+      </div>
+      <div class="rrow">
+        <div class="rname">Usefulness<small>Does it really help someone shop and decide?</small></div>
+        <div class="rbar"><span style="width:50%"></span></div>
+        <div class="rwt">15</div>
+      </div>
+      <div class="rrow">
+        <div class="rname">End-to-end completeness<small>Discovery all the way through to a working checkout.</small></div>
+        <div class="rbar"><span style="width:50%"></span></div>
+        <div class="rwt">15</div>
+      </div>
+      <div class="rrow">
+        <div class="rname">Creativity<small>Show us something we didn't see coming.</small></div>
+        <div class="rbar"><span style="width:17%"></span></div>
+        <div class="rwt">5</div>
+      </div>
+      <div class="rtotal"><div>Total</div><div class="rwt">100</div></div>
+    </div>
+
+    <div class="bonus">
+      <h3>⭐ Bonus points — go where others won't</h3>
+      <p class="bsub">
+        Nail the hard stuff and you'll pull ahead of the pack. These are the things that
+        separate a demo from a product:
+      </p>
+      <div class="chips">
+        <span class="chip">🛒 Multi-item carts</span>
+        <span class="chip">📅 Delivery-date constraints</span>
+        <span class="chip">🎁 Gift messaging</span>
+        <span class="chip">💬 Tanglish conversation</span>
+        <span class="chip star"><span class="em">🇱🇰</span> Sinhala-language support</span>
+      </div>
+      <p class="bsub" style="margin:16px 0 0;">
+        <strong>Sinhala especially</strong> — it fits Kapruka's market perfectly and almost no one
+        will attempt it. Pull it off and you'll stand out instantly.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── TIMELINE ─────────────────────────────────────────────────────── -->
+  <section>
+    <p class="kicker">Timeline</p>
+    <h2>Key dates</h2>
+    <div class="card timeline">
+      <div class="row"><div class="when">Now — open</div><div class="what"><strong>Registration is live.</strong> Submit the form and start building.</div></div>
+      <div class="row"><div class="when">Through June</div><div class="what">Build and host your agent. Reach out if you hit a wall with the MCP.</div></div>
+      <div class="row"><div class="when">30 June 2026</div><div class="what"><strong>Submissions close.</strong> Your live demo link must be in by end of day.</div></div>
+    </div>
+  </section>
+
+  <!-- ── FAQ ──────────────────────────────────────────────────────────── -->
+  <section class="faq">
+    <p class="kicker">Questions</p>
+    <h2>FAQ</h2>
+
+    <details>
+      <summary>Do I need a Kapruka API key?</summary>
+      <p>No. The MCP at <code>mcp.kapruka.com/mcp</code> is free and public — no key, no sign-up. Just connect and build.</p>
+    </details>
+    <details>
+      <summary>What can the MCP actually do?</summary>
+      <p>Search products, browse categories, quote delivery to Sri Lankan addresses, create guest-checkout orders with pay links, and track existing orders. See the full tool list at <a href="https://mcp.kapruka.com/" target="_blank" rel="noopener">mcp.kapruka.com</a>.</p>
+    </details>
+    <details>
+      <summary>Which AI model or framework should I use?</summary>
+      <p>Whatever you like — Claude, GPT, open models, any agent framework, any hosting. We judge the experience, not your stack.</p>
+    </details>
+    <details>
+      <summary>Can I enter as a team?</summary>
+      <p>This round is for solo builders — one person, one entry, one prize. It's your moment to shine on your own.</p>
+    </details>
+    <details>
+      <summary>Does the demo really need to be hosted?</summary>
+      <p>Yes — that's the whole point. Submit a public URL the judges can open in a browser and use immediately. If it isn't live when we judge, it can't be scored.</p>
+    </details>
+    <details>
+      <summary>What if there are two amazing entries?</summary>
+      <p>We're aiming for one clear winner of the Mac Mini. If it's genuinely too close to call, the judges may add a 2nd and 3rd prize.</p>
+    </details>
+  </section>
+
+  <!-- ── FINAL CTA ────────────────────────────────────────────────────── -->
+  <section>
+    <div class="finalcta">
+      <h2>Ready to build?</h2>
+      <p>Register now and start shaping the future of shopping in Sri Lanka.</p>
+      <a class="btn btn-primary apply-btn" href="https://www.kapruka.com/contactUs/agentChallengeApply.html">Enter the Kapruka Agent Challenge →</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="row">
+      <div>© 2026 Kapruka Holdings PLC · The Kapruka Agent Challenge</div>
+      <div>
+        <a href="https://mcp.kapruka.com/" target="_blank" rel="noopener">MCP docs</a> ·
+        <a href="https://github.com/kapruka/mcp" target="_blank" rel="noopener">GitHub</a> ·
+        <a href="https://www.kapruka.com/" target="_blank" rel="noopener">Kapruka.com</a>
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  // Copy-to-clipboard for endpoint + code blocks
+  document.querySelectorAll('.copy-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = btn.getAttribute('data-copy');
+      navigator.clipboard.writeText(text).then(function () {
+        var original = btn.textContent;
+        btn.textContent = 'Copied';
+        btn.classList.add('copied');
+        setTimeout(function () {
+          btn.textContent = original;
+          btn.classList.remove('copied');
+        }, 1600);
+      });
+    });
+  });
+</script>
+
+<script defer="" src="./Kapruka Agent Challenge — build Sri Lanka&#39;s best AI shopping agent. Win a Mac Mini._files/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;5bfde5a43a944ca2b1e733f950b6416d&quot;,&quot;server_timing&quot;:{&quot;name&quot;:{&quot;cfCacheStatus&quot;:true,&quot;cfEdge&quot;:true,&quot;cfExtPri&quot;:true,&quot;cfL4&quot;:true,&quot;cfOrigin&quot;:true,&quot;cfSpeedBrain&quot;:true},&quot;location_startswith&quot;:null}}" crossorigin="anonymous"></script>
+
+
+</body></html>

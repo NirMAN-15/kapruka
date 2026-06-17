@@ -1,0 +1,1816 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  MessageSquare, 
+  ShoppingCart, 
+  Search, 
+  MapPin, 
+  Calendar, 
+  Truck, 
+  ShoppingBag, 
+  Trash2, 
+  Plus, 
+  Minus, 
+  Globe, 
+  HelpCircle,
+  Clock,
+  Sparkles,
+  ChevronRight,
+  TrendingUp,
+  X
+} from 'lucide-react';
+
+const translations = {
+  en: {
+    welcomeMessage: 'Ayu Bowan! 🇱🇰 Welcome to Kapruka AI Shopping Assistant. How can I help you choose the perfect gift or product today?\n\n*Suggestions: "Find chocolate cakes under 5000 LKR", "Mata mal pokurak ona", "Track my order #1234"*',
+    suggestionsChips: [
+      { label: '🎂 Cakes', query: 'Cake' },
+      { label: '💐 Flowers', query: 'Flowers' },
+      { label: '🍫 Chocolates', query: 'Chocolate' },
+      { label: '🧸 Soft Toys', query: 'Toy' },
+      { label: '🎁 Gift Hampers', query: 'Hamper' }
+    ],
+    inputPlaceholder: "Search for cakes, flowers, track orders...",
+    sidebarHeader: "Shopping Cart",
+    orderTracker: "Order Tracker",
+    guestCheckout: "Guest Checkout",
+    clearCart: "Clear Cart",
+    addToCart: "Add to Cart",
+    proceedToCheckout: "Proceed to Checkout",
+    recipientName: "Recipient Full Name",
+    recipientPhone: "Recipient Phone",
+    streetAddress: "Street Address",
+    city: "City",
+    locationType: "Location Type",
+    deliveryDate: "Delivery Date",
+    greetingCard: "Greeting Card Message (Optional)",
+    deliveryInstructions: "Delivery Instructions (Optional)",
+    sendAnonymously: "Send Anonymously",
+    senderName: "Sender Full Name",
+    senderPhone: "Sender Phone",
+    senderEmail: "Sender Email",
+    phoneRequired: "Phone number is required",
+    phoneInvalid: "Invalid Sri Lankan phone format (e.g. 0771234567 or +94771234567)",
+    back: "Back",
+    backToCart: "Back to Cart",
+    next: "Next",
+    placeOrder: "Place Order & Pay",
+    placingOrder: "Placing Order...",
+    orderConfirmed: "Order Confirmed!",
+    orderCreatedSuccess: "Order Created Successfully!",
+    grandTotalSummary: "Grand Total Summary",
+    subtotal: "Cart Subtotal",
+    deliveryFee: "Delivery Fee",
+    totalPay: "Total Pay",
+    added: "Added!",
+    unavailable: "Unavailable",
+    inStock: "In Stock",
+    outOfStock: "Out of Stock",
+    // Sidebar items
+    directCatalogQuery: "Direct Catalog Query",
+    searchPlaceholder: "Search products...",
+    searchToolsButton: "Search Tools",
+    searchingButton: "Querying...",
+    popularGifts: "Popular Gifts",
+    liveOrderTracker: "Live Order Tracker",
+    orderNumPlaceholder: "Order Number (e.g., 55102)",
+    queryTrackerButton: "Query Tracker",
+    trackingButton: "Tracking...",
+    welcomeTitle: "Active AI Shopping Agent",
+    welcomeText: "The Express backend bridge is fully initialized, proxying requests directly to the remote Kapruka MCP Server tools. Use the search parameters, track orders, or simulate queries below!",
+    backendBridge: "Backend Bridge",
+    connected: "Connected",
+    disconnected: "Disconnected",
+    checking: "Checking...",
+    assistantTitle: "Kapruka Intelligent Assistant",
+    recommendedGifts: "Recommended Gift Items",
+    clearResults: "Clear Results",
+    sendButton: "Send",
+    itemsBadge: "Items"
+  },
+  si: {
+    welcomeMessage: 'ආයුබෝවන්! 🇱🇰 කප්රුක AI සාප්පු සවාරි සහායකයා වෙත සාදරයෙන් පිළිගනිමු. අද දින ඔබට පරිපූර්ණ තෑග්ගක් හෝ භාණ්ඩයක් තෝරා ගැනීමට මා උපකාර කරන්නේ කෙසේද?\n\n*යෝජනා: "රුපියල් 5000ට අඩු චොකලට් කේක් සොයන්න", "මට මල් පොකුරක් ඕන", "මගේ ඇණවුම ලුහුබඳින්න #1234"*',
+    suggestionsChips: [
+      { label: '🎂 කේක්', query: 'Cake' },
+      { label: '💐 මල් පොකුරු', query: 'Flowers' },
+      { label: '🍫 චොකලට්', query: 'Chocolate' },
+      { label: '🧸 සෙල්ලම් බඩු', query: 'Toy' },
+      { label: '🎁 තෑගි කූඩ', query: 'Hamper' }
+    ],
+    inputPlaceholder: "කේක් එකක් සොයන්න, මල් හෝ ඇණවුම් ලුහුබැඳන්න...",
+    sidebarHeader: "සාප්පු කරත්තය",
+    orderTracker: "ඇණවුම් ලුහුබැඳීම",
+    guestCheckout: "අමුත්තන්ගේ පරීක්ෂාව",
+    clearCart: "කරත්තය හිස් කරන්න",
+    addToCart: "කරත්තයට එක් කරන්න",
+    proceedToCheckout: "පරීක්ෂා කිරීමට ඉදිරියට යන්න",
+    recipientName: "ලබන්නාගේ සම්පූර්ණ නම",
+    recipientPhone: "ලබන්නාගේ දුරකථන අංකය",
+    streetAddress: "ලිපිනය",
+    city: "නගරය",
+    locationType: "ස්ථාන වර්ගය",
+    deliveryDate: "බෙදා හැරීමේ දිනය",
+    greetingCard: "සුභ පැතුම් පතේ පණිවිඩය (විකල්ප)",
+    deliveryInstructions: "බෙදා හැරීමේ උපදෙස් (විකල්ප)",
+    sendAnonymously: "නමක් නොමැතිව යවන්න",
+    senderName: "යවන්නාගේ සම්පූර්ණ නම",
+    senderPhone: "යවන්නාගේ දුරකථන අංකය",
+    senderEmail: "යවන්නාගේ විද්‍යුත් තැපෑල",
+    phoneRequired: "දුරකථන අංකය අවශ්‍යයි",
+    phoneInvalid: "වලංගු නොවන ශ්‍රී ලංකා දුරකථන අංක ආකෘතියකි (උදා. 0771234567 හෝ +94771234567)",
+    back: "ආපසු",
+    backToCart: "කරත්තයට ආපසු",
+    next: "මීළඟ",
+    placeOrder: "ඇණවුම තහවුරු කර ගෙවන්න",
+    placingOrder: "ඇණවුම සකසමින්...",
+    orderConfirmed: "ඇණවුම තහවුරු කරන ලදී!",
+    orderCreatedSuccess: "ඇණවුම සාර්ථකව නිර්මාණය කරන ලදී!",
+    grandTotalSummary: "මුළු එකතුව පිළිබඳ විස්තරය",
+    subtotal: "භාණ්ඩ එකතුව",
+    deliveryFee: "බෙදා හැරීමේ ගාස්තුව",
+    totalPay: "ගෙවිය යුතු මුළු මුදල",
+    added: "එක් කරන ලදී!",
+    unavailable: "නොමැත",
+    inStock: "තොග ඇත",
+    outOfStock: "තොග අවසන්",
+    // Sidebar items
+    directCatalogQuery: "සෘජු නිෂ්පාදන සෙවුම",
+    searchPlaceholder: "භාණ්ඩ සොයන්න...",
+    searchToolsButton: "සොයන්න",
+    searchingButton: "සොයමින්...",
+    popularGifts: "ජනප්‍රිය තෑගි",
+    liveOrderTracker: "සජීවී ඇණවුම් ලුහුබැඳීම",
+    orderNumPlaceholder: "ඇණවුම් අංකය (උදා. 55102)",
+    queryTrackerButton: "ලුහුබඳින්න",
+    trackingButton: "ලුහුබඳිමින්...",
+    welcomeTitle: "ක්‍රියාකාරී AI සාප්පු සහායකයා",
+    welcomeText: "Express පසුපෙළ පාලම සාර්ථකව සම්බන්ධ කර ඇත, එය Kapruka remote MCP සේවාදායක මෙවලම් සමඟ කෙලින්ම ක්‍රියාත්මක වේ. සෙවුම් පරාමිතීන්, ඇණවුම් ලුහුබැඳීම හෝ වෙනත් විමසීම් භාවිතා කරන්න!",
+    backendBridge: "පසුපෙළ පාලම",
+    connected: "සම්බන්ධයි",
+    disconnected: "විසන්ධි වී ඇත",
+    checking: "පරීක්ෂා කරමින්...",
+    assistantTitle: "කප්රුක බුද්ධිමත් සහායකයා",
+    recommendedGifts: "නිර්දේශිත තෑගි භාණ්ඩ",
+    clearResults: "ප්‍රතිඵල ඉවත් කරන්න",
+    sendButton: "යවන්න",
+    itemsBadge: "භාණ්ඩ"
+  },
+  tanglish: {
+    welcomeMessage: 'Ayu Bowan! 🇱🇰 Kapruka AI Shopping Assistant ekata welcome. Ada oyata lassanama gift ekak select karanna mama kohomada udaw karanna ona?\n\n*Suggestions: "Find chocolate cakes under 5000 LKR", "Mata mal pokurak ona", "Track my order #1234"*',
+    suggestionsChips: [
+      { label: '🎂 Cakes', query: 'Cake' },
+      { label: '💐 Flowers', query: 'Flowers' },
+      { label: '🍫 Chocolates', query: 'Chocolate' },
+      { label: '🧸 Soft Toys', query: 'Toy' },
+      { label: '🎁 Gift Hampers', query: 'Hamper' }
+    ],
+    inputPlaceholder: "Mata chocolate cake ekak ona, track my order...",
+    sidebarHeader: "Shopping Cart",
+    orderTracker: "Order Tracker",
+    guestCheckout: "Guest Checkout",
+    clearCart: "Clear Cart",
+    addToCart: "Add to Cart",
+    proceedToCheckout: "Proceed to Checkout",
+    recipientName: "Recipient Full Name",
+    recipientPhone: "Recipient Phone",
+    streetAddress: "Street Address",
+    city: "City",
+    locationType: "Location Type",
+    deliveryDate: "Delivery Date",
+    greetingCard: "Greeting Card Message (Optional)",
+    deliveryInstructions: "Delivery Instructions (Optional)",
+    sendAnonymously: "Send Anonymously",
+    senderName: "Sender Full Name",
+    senderPhone: "Sender Phone",
+    senderEmail: "Sender Email",
+    phoneRequired: "Phone number eka ona",
+    phoneInvalid: "Invalid Sri Lankan phone format (e.g. 0771234567 or +94771234567)",
+    back: "Back",
+    backToCart: "Back to Cart",
+    next: "Next",
+    placeOrder: "Place Order & Pay",
+    placingOrder: "Placing Order...",
+    orderConfirmed: "Order Confirmed!",
+    orderCreatedSuccess: "Order Created Successfully!",
+    grandTotalSummary: "Grand Total Summary",
+    subtotal: "Cart Subtotal",
+    deliveryFee: "Delivery Fee",
+    totalPay: "Total Pay",
+    added: "Added!",
+    unavailable: "Unavailable",
+    inStock: "In Stock",
+    outOfStock: "Out of Stock",
+    // Sidebar items
+    directCatalogQuery: "Direct Catalog Query",
+    searchPlaceholder: "Search products...",
+    searchToolsButton: "Search Tools",
+    searchingButton: "Querying...",
+    popularGifts: "Popular Gifts",
+    liveOrderTracker: "Live Order Tracker",
+    orderNumPlaceholder: "Order Number (e.g., 55102)",
+    queryTrackerButton: "Query Tracker",
+    trackingButton: "Tracking...",
+    welcomeTitle: "Active AI Shopping Agent",
+    welcomeText: "Express backend bridge eka connect wela thiyenne. Kapruka remote MCP server tools use karanna puluwan. Catalog search karanna hari order track karanna hari prompt eka type karanna!",
+    backendBridge: "Backend Bridge",
+    connected: "Connected",
+    disconnected: "Disconnected",
+    checking: "Checking...",
+    assistantTitle: "Kapruka AI Assistant",
+    recommendedGifts: "Recommended Gift Items",
+    clearResults: "Clear Results",
+    sendButton: "Send",
+    itemsBadge: "Items"
+  }
+};
+
+// Extractor for city names from the markdown result
+const extractCities = (data) => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (data.cities && Array.isArray(data.cities)) return data.cities;
+  
+  const mdText = data.result || data.text || (typeof data === 'string' ? data : '');
+  if (!mdText) return [];
+  
+  const matches = [...mdText.matchAll(/-\s+\*\*([^*]+)\*\*/g)];
+  return matches.map(m => m[1].trim());
+};
+
+// Parser for products from markdown text
+function parseProductsFromMarkdown(mdText) {
+  if (!mdText || typeof mdText !== 'string') return [];
+  
+  const products = [];
+  const lines = mdText.split('\n');
+  let currentProduct = null;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    // Match titles: can start with optional "*", "-", "1.", etc. then "**Title**"
+    const titleMatch = line.match(/^\s*[-*]?\s*\*\*(?:\d+\.\s*)?([^*]+)\*\*/);
+    if (titleMatch) {
+      if (currentProduct) {
+        // Try to extract ID from URL if empty before saving
+        if (currentProduct.url && !currentProduct.product_id) {
+          const idFromUrl = currentProduct.url.match(/\/kid\/([^/]+)/i) || currentProduct.url.match(/\/([^/]+)$/);
+          if (idFromUrl) {
+            currentProduct.product_id = idFromUrl[1].toUpperCase();
+          }
+        }
+        products.push(currentProduct);
+      }
+      currentProduct = {
+        title: titleMatch[1].trim(),
+        price: 'LKR 3,500',
+        in_stock: true,
+        image: 'https://via.placeholder.com/150',
+        product_id: '',
+        url: ''
+      };
+      continue;
+    }
+    
+    if (currentProduct) {
+      const idMatch = line.match(/ID:\s*`?([^`\s]+)`?/i) || line.match(/ID:\s*(\w+)/i) || line.match(/Product ID:\s*(\w+)/i);
+      if (idMatch) {
+        currentProduct.product_id = idMatch[1].trim();
+      }
+      
+      // Matches LKR 2,300 or RS.4,250 or Rs. 4,250
+      const priceMatch = line.match(/(?:lkr|rs\.?)\s*([\d,]+)/i);
+      if (priceMatch) {
+        currentProduct.price = `LKR ${priceMatch[1]}`;
+      }
+      
+      if (line.toLowerCase().includes('out of stock') || line.toLowerCase().includes('unavailable')) {
+        currentProduct.in_stock = false;
+      }
+      
+      const urlMatch = line.match(/\[[^\]]+\]\((https?:\/\/[^)]+)\)/i) || line.match(/\((https?:\/\/[^)]+)\)/i);
+      if (urlMatch) {
+        currentProduct.url = urlMatch[1].trim();
+      }
+    }
+  }
+  
+  if (currentProduct) {
+    if (currentProduct.url && !currentProduct.product_id) {
+      const idFromUrl = currentProduct.url.match(/\/kid\/([^/]+)/i) || currentProduct.url.match(/\/([^/]+)$/);
+      if (idFromUrl) {
+        currentProduct.product_id = idFromUrl[1].toUpperCase();
+      }
+    }
+    products.push(currentProduct);
+  }
+  
+  return products.map(p => {
+    if (!p.image || p.image === 'https://via.placeholder.com/150') {
+      const lowerTitle = p.title.toLowerCase();
+      if (lowerTitle.includes('cake') || (p.product_id && p.product_id.toUpperCase().startsWith('CAKE'))) {
+        p.image = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500&auto=format&fit=crop&q=60';
+      } else if (lowerTitle.includes('flower') || lowerTitle.includes('rose') || (p.product_id && p.product_id.toUpperCase().startsWith('FLOWER'))) {
+        p.image = 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=500&auto=format&fit=crop&q=60';
+      } else if (lowerTitle.includes('chocolate') || lowerTitle.includes('choco')) {
+        p.image = 'https://images.unsplash.com/photo-1548907040-4d42b52145ea?w=500&auto=format&fit=crop&q=60';
+      } else if (lowerTitle.includes('toy') || lowerTitle.includes('teddy')) {
+        p.image = 'https://images.unsplash.com/photo-1559251606-c623743a6d76?w=500&auto=format&fit=crop&q=60';
+      } else if (lowerTitle.includes('hamper') || lowerTitle.includes('gift')) {
+        p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
+      } else {
+        p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
+      }
+    }
+    return p;
+  });
+}
+
+const normalizeProducts = (data) => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (data.products && Array.isArray(data.products) && data.products.length > 0) return data.products;
+  if (data.result && typeof data.result === 'string') {
+    return parseProductsFromMarkdown(data.result);
+  }
+  if (data.text && typeof data.text === 'string') {
+    return parseProductsFromMarkdown(data.text);
+  }
+  if (typeof data === 'object') {
+    if (data.product_id || data.id) {
+      return [data];
+    }
+    for (const key in data) {
+      if (Array.isArray(data[key])) {
+        return data[key];
+      }
+    }
+  }
+  return [];
+};
+
+// Clean raw markdown product lists from conversational text if cards are rendered
+const cleanChatText = (text) => {
+  if (!text || typeof text !== 'string') return '';
+  const lines = text.split('\n');
+  const cleanedLines = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) {
+      cleanedLines.push(lines[i]);
+      continue;
+    }
+    
+    // Detect product details lines
+    const isProductTitle = line.match(/^\*?\s*\*\*([^*]+)\*\*/) || line.match(/^\d+\.\s*\*\*([^*]+)\*\*/);
+    const isId = line.includes('ID:') || line.match(/ID:\s*`([^`]+)`/i) || line.match(/ID:\s*(\w+)/i);
+    const isPrice = line.includes('LKR') || line.includes('Price:') || line.match(/LKR\s*([\d,]+)/i);
+    const isUrl = line.includes('View product') || line.includes('buyonline') || line.match(/\[View product\]\(([^)]+)\)/i);
+    const isStockStatus = line.toLowerCase().includes('in stock') || line.toLowerCase().includes('out of stock') || line.toLowerCase().includes('ships internationally') || line.includes('·');
+    const isDescription = line.toLowerCase().includes('description:') || line.match(/description/i);
+    
+    if (isProductTitle || isId || isPrice || isUrl || isStockStatus || isDescription) {
+      continue; // Skip this line
+    }
+    
+    cleanedLines.push(lines[i]);
+  }
+  
+  // Join back and collapse multiple empty lines
+  return cleanedLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+};
+
+
+// Countdown component starting from 60 minutes
+function ExpirationCountdown({ minutes = 60, onComplete }) {
+  const [timeLeft, setTimeLeft] = useState(minutes * 60);
+
+  useEffect(() => {
+    if (timeLeft <= 0) {
+      if (onComplete) onComplete();
+      return;
+    }
+    const interval = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timeLeft, onComplete]);
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="bg-rose-500/10 border border-rose-500/20 text-rose-300 font-mono text-center py-2 px-3 rounded-lg text-xs font-semibold animate-pulse flex items-center justify-center gap-1.5">
+      <Clock className="w-3.5 h-3.5" /> Link Expiry: {formatTime(timeLeft)}
+    </div>
+  );
+}
+
+// Reusable product skeleton component
+function ProductSkeleton() {
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden animate-pulse flex flex-col h-64">
+      <div className="h-36 bg-slate-800/60" />
+      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+        <div className="space-y-2">
+          <div className="h-4 bg-slate-800/60 rounded w-3/4" />
+          <div className="h-3 bg-slate-800/60 rounded w-1/2" />
+        </div>
+        <div className="h-8 bg-slate-800/60 rounded w-full" />
+      </div>
+    </div>
+  );
+}
+
+// Reusable premium visual product card component
+function ProductCard({ product, onAddToCart, language = 'en' }) {
+  const [added, setAdded] = React.useState(false);
+  const id = product.product_id || product.id;
+  const title = product.title || product.name || 'Kapruka Gift';
+  const price = product.price || 'LKR 3,500';
+  const img = product.image || product.image_url || 'https://via.placeholder.com/150';
+  const isStock = product.stock !== false && product.in_stock !== false;
+
+  const handleAdd = () => {
+    onAddToCart(product);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1200);
+  };
+
+  return (
+    <div 
+      className="bg-slate-900 border border-slate-800 hover:border-kapruka-purple-light rounded-xl overflow-hidden shadow-lg flex flex-col product-card-hover animate-fade-in w-full"
+    >
+      <div className="h-36 overflow-hidden bg-slate-950 relative">
+        <img 
+          src={img} 
+          alt={title}
+          className="w-full h-full object-cover transition duration-500"
+        />
+        <span className={`absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded font-bold ${
+          isStock ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+        }`}>
+          {isStock ? translations[language].inStock : translations[language].outOfStock}
+        </span>
+      </div>
+      
+      <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
+        <div>
+          <h4 className="font-semibold text-slate-100 text-xs line-clamp-2 hover:text-kapruka-yellow transition min-h-[2rem]">
+            {title}
+          </h4>
+          <p className="text-kapruka-yellow font-bold text-xs mt-1 font-outfit">
+            {typeof price === 'number' ? `LKR ${price.toLocaleString()}` : price}
+          </p>
+        </div>
+        
+        <div className="flex flex-col gap-2 w-full">
+          <button
+            onClick={handleAdd}
+            disabled={!isStock}
+            className={`w-full font-semibold py-1.5 px-3 rounded-lg text-[11px] transition-all duration-200 flex items-center justify-center gap-1.5 ${
+              !isStock 
+                ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
+                : added 
+                  ? 'bg-emerald-600 text-white shadow-emerald-900/30' 
+                  : 'bg-kapruka-purple hover:bg-kapruka-purple-light text-white'
+            }`}
+          >
+            {added ? (
+              <>
+                <span>{translations[language].added}</span>
+                <span className="text-xs">✓</span>
+              </>
+            ) : (
+              isStock ? translations[language].addToCart : translations[language].unavailable
+            )}
+          </button>
+
+          {product.url && (
+            <a
+              href={product.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full font-semibold py-1.5 px-3 rounded-lg text-[11px] border border-slate-700 hover:bg-slate-800 text-slate-350 transition duration-150 flex items-center justify-center gap-1 font-outfit"
+            >
+              <span>{language === 'si' ? 'කප්රුක වෙත' : 'View on Kapruka'}</span>
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  // Connection and API health state
+  const [apiStatus, setApiStatus] = useState({ connected: false, checking: true });
+  
+  // Chat state
+  const [language, setLanguage] = useState('en'); // en, si, tanglish
+  const [messages, setMessages] = useState([
+    {
+      id: 1,
+      sender: 'agent',
+      text: translations['en'].welcomeMessage,
+      timestamp: new Date()
+    }
+  ]);
+  const [inputText, setInputText] = useState('');
+  const messagesEndRef = React.useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Scroll to bottom when messages load/update
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Sync welcome message on language change if conversation hasn't started
+  useEffect(() => {
+    setMessages(prev => {
+      if (prev.length === 1 && prev[0].id === 1 && prev[0].sender === 'agent') {
+        return [{
+          ...prev[0],
+          text: translations[language].welcomeMessage
+        }];
+      }
+      return prev;
+    });
+  }, [language]);
+
+  // Catalog / Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [category, setCategory] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Cart state
+  const [cart, setCart] = useState([]);
+  const [isCartOpen, setIsCartOpen] = useState(true);
+
+  // Delivery / Checkout state
+  const [cityQuery, setCityQuery] = useState('');
+  const [cities, setCities] = useState([]);
+  const [selectedCity, setSelectedCity] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [deliveryFee, setDeliveryFee] = useState(null);
+  const [isCheckingDelivery, setIsCheckingDelivery] = useState(false);
+  const [deliveryError, setDeliveryError] = useState(null);
+
+  // Expanded Wizard Checkout state
+  const [checkoutStep, setCheckoutStep] = useState(null); // null, 1, 2, 3, 4
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientPhone, setRecipientPhone] = useState('');
+  const [recipientPhoneError, setRecipientPhoneError] = useState('');
+  const [streetAddress, setStreetAddress] = useState('');
+  const [locationType, setLocationType] = useState('house'); // house, apartment, office, other
+  const [giftMessage, setGiftMessage] = useState('');
+  const [deliveryInstructions, setDeliveryInstructions] = useState('');
+  const [senderName, setSenderName] = useState('');
+  const [senderPhone, setSenderPhone] = useState('');
+  const [senderEmail, setSenderEmail] = useState('');
+  const [sendAnonymously, setSendAnonymously] = useState(false);
+
+  // Confirmed order details
+  const [confirmedOrder, setConfirmedOrder] = useState(null); // { order_number, checkout_url, total }
+
+  // Order status check state
+  const [trackOrderNum, setTrackOrderNum] = useState('');
+  const [orderTrackingDetails, setOrderTrackingDetails] = useState(null);
+  const [isTrackLoading, setIsTrackLoading] = useState(false);
+
+  // Popular search tags/chips
+  const searchChips = translations[language].suggestionsChips;
+
+  // Fetch API Health Status on mount
+  useEffect(() => {
+    async function checkHealth() {
+      try {
+        const res = await fetch('/api/status');
+        if (res.ok) {
+          const data = await res.json();
+          setApiStatus({ connected: data.connected, checking: false, error: null });
+        } else {
+          setApiStatus({ connected: false, checking: false, error: 'Server returned unhealthy status' });
+        }
+      } catch (err) {
+        setApiStatus({ connected: false, checking: false, error: err.message });
+      }
+    }
+    checkHealth();
+    // Poll every 10 seconds to show dynamic status
+    const interval = setInterval(checkHealth, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Handle Text Query Submission
+  const handleSendMessage = async (e) => {
+    if (e) e.preventDefault();
+    if (!inputText.trim()) return;
+
+    const userMsg = {
+      id: Date.now(),
+      sender: 'user',
+      text: inputText,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, userMsg]);
+    const prompt = inputText;
+    setInputText('');
+
+    // Renders custom loading bubble
+    const loadingId = Date.now() + 1;
+    setMessages(prev => [...prev, { id: loadingId, sender: 'agent', text: '', isPlaceholder: true }]);
+
+    // Detect if this query is a search intent to toggle skeleton loader cards
+    const lowercasePrompt = prompt.toLowerCase();
+    const isSearchIntent = lowercasePrompt.includes('cake') || 
+                           lowercasePrompt.includes('flower') || 
+                           lowercasePrompt.includes('mal') || 
+                           lowercasePrompt.includes('chocolate') || 
+                           lowercasePrompt.includes('toy') || 
+                           lowercasePrompt.includes('doll') || 
+                           lowercasePrompt.includes('hamper') || 
+                           lowercasePrompt.includes('gift') ||
+                           lowercasePrompt.includes('hoyala') ||
+                           lowercasePrompt.includes('ona') ||
+                           lowercasePrompt.includes('find') ||
+                           lowercasePrompt.includes('search');
+    
+    if (isSearchIntent) {
+      setIsSearching(true);
+    }
+
+    const startTime = Date.now();
+    try {
+      const chatHistory = [...messages, userMsg];
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ messages: chatHistory, language })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP error ${res.status}`);
+      }
+
+      const data = await res.json();
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 500 - elapsed);
+      if (remaining > 0) {
+        await new Promise(resolve => setTimeout(resolve, remaining));
+      }
+
+      // Update agent message with response and products
+      setMessages(prev => prev.map(m => m.id === loadingId ? {
+        id: loadingId,
+        sender: 'agent',
+        text: data.text,
+        products: normalizeProducts(data),
+        timestamp: new Date()
+      } : m));
+
+      // Sync visual product search panel if products were returned
+      const normProds = normalizeProducts(data);
+      if (normProds && normProds.length > 0) {
+        setSearchResults(normProds);
+      }
+    } catch (err) {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 500 - elapsed);
+      if (remaining > 0) {
+        await new Promise(resolve => setTimeout(resolve, remaining));
+      }
+
+      setMessages(prev => prev.map(m => m.id === loadingId ? {
+        id: loadingId,
+        sender: 'agent',
+        text: `Sorry, I hit an error connecting to the API bridge: ${err.message}`,
+        timestamp: new Date()
+      } : m));
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Click on tags/chips - submits search immediately
+  const handleChipClick = async (queryText) => {
+    const chipQuery = `Find some beautiful ${queryText} items`;
+    
+    const userMsg = {
+      id: Date.now(),
+      sender: 'user',
+      text: chipQuery,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, userMsg]);
+    setIsSearching(true);
+
+    const loadingId = Date.now() + 1;
+    setMessages(prev => [...prev, { id: loadingId, sender: 'agent', text: '', isPlaceholder: true }]);
+
+    const startTime = Date.now();
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ messages: [...messages, userMsg], language })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP error ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 500 - elapsed);
+      if (remaining > 0) {
+        await new Promise(resolve => setTimeout(resolve, remaining));
+      }
+
+      setMessages(prev => prev.map(m => m.id === loadingId ? {
+        id: loadingId,
+        sender: 'agent',
+        text: data.text,
+        products: normalizeProducts(data),
+        timestamp: new Date()
+      } : m));
+
+      const normProds = normalizeProducts(data);
+      if (normProds && normProds.length > 0) {
+        setSearchResults(normProds);
+      }
+    } catch (err) {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 500 - elapsed);
+      if (remaining > 0) {
+        await new Promise(resolve => setTimeout(resolve, remaining));
+      }
+
+      setMessages(prev => prev.map(m => m.id === loadingId ? {
+        id: loadingId,
+        sender: 'agent',
+        text: `Sorry, I hit an error connecting to the API bridge: ${err.message}`,
+        timestamp: new Date()
+      } : m));
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Search Products from side form
+  const handleSearchCatalog = async (e) => {
+    if (e) e.preventDefault();
+    if (!searchQuery) return;
+    
+    setIsSearching(true);
+    const startTime = Date.now();
+    try {
+      const url = `/api/search?q=${encodeURIComponent(searchQuery)}${category ? `&category=${encodeURIComponent(category)}` : ''}&limit=8`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, 500 - elapsed);
+        if (remaining > 0) {
+          await new Promise(resolve => setTimeout(resolve, remaining));
+        }
+
+        setSearchResults(normalizeProducts(data));
+      }
+    } catch (error) {
+      console.error('Catalog search failed:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Add to Shopping Cart
+  const addToCart = (product) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.product_id === product.product_id || item.id === product.id);
+      const id = product.product_id || product.id;
+      if (existing) {
+        return prev.map(item => (item.product_id === id || item.id === id) ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...prev, { ...product, product_id: id, quantity: 1 }];
+    });
+  };
+
+  // Update Cart Quantities
+  const updateQuantity = (id, delta) => {
+    setCart(prev => prev.map(item => {
+      if (item.product_id === id || item.id === id) {
+        const newQty = item.quantity + delta;
+        return newQty > 0 ? { ...item, quantity: newQty } : item;
+      }
+      return item;
+    }).filter(item => item.quantity > 0));
+  };
+
+  // Remove Item
+  const removeFromCart = (id) => {
+    setCart(prev => prev.filter(item => item.product_id !== id && item.id !== id));
+  };
+
+  // Search Cities
+  useEffect(() => {
+    if (!cityQuery || cityQuery.length < 2 || cityQuery === selectedCity) {
+      setCities([]);
+      return;
+    }
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/cities?query=${encodeURIComponent(cityQuery)}&limit=5`);
+        if (res.ok) {
+          const data = await res.json();
+          setCities(extractCities(data));
+        }
+      } catch (err) {
+        console.error('City lookup error:', err);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
+  }, [cityQuery, selectedCity]);
+
+  // Recipient phone number validation
+  const handleRecipientPhoneChange = (val) => {
+    setRecipientPhone(val);
+    const slPhoneRegex = /^(?:\+94|0)?7[0-9]{8}$/;
+    if (!val) {
+      setRecipientPhoneError(translations[language].phoneRequired);
+    } else if (!slPhoneRegex.test(val)) {
+      setRecipientPhoneError(translations[language].phoneInvalid);
+    } else {
+      setRecipientPhoneError('');
+    }
+  };
+
+  // Check if cart contains perishable items
+  const hasPerishableItems = () => {
+    return cart.some(item => {
+      const id = (item.product_id || item.id || '').toUpperCase();
+      return id.startsWith('CAKE') || id.startsWith('FLOWER') || id.startsWith('COMBO');
+    });
+  };
+
+  // Dynamic delivery rate fetch & check when city and date are selected
+  useEffect(() => {
+    if (!selectedCity || !deliveryDate) {
+      setDeliveryFee(null);
+      setDeliveryError(null);
+      return;
+    }
+
+    async function fetchDeliveryRate() {
+      setIsCheckingDelivery(true);
+      setDeliveryError(null);
+      try {
+        const res = await fetch(`/api/delivery?city=${encodeURIComponent(selectedCity)}&delivery_date=${deliveryDate}`);
+        if (res.ok) {
+          const data = await res.json();
+          const resultText = data.result || data.text || '';
+          
+          // Check availability constraints
+          if (resultText.toLowerCase().includes('error') || resultText.toLowerCase().includes('not available') || resultText.toLowerCase().includes('false')) {
+            setDeliveryError(resultText || 'Delivery not available for selected date/city.');
+            setDeliveryFee(null);
+            return;
+          }
+          
+          // Parse flat rate
+          const match = resultText.match(/LKR\s*([\d,]+)/i) || resultText.match(/rate\s*([\d,]+)/i);
+          if (match) {
+            const fee = parseFloat(match[1].replace(/,/g, ''));
+            setDeliveryFee(fee);
+          } else if (typeof data.fee === 'number') {
+            setDeliveryFee(data.fee);
+          } else if (typeof data.delivery_fee === 'number') {
+            setDeliveryFee(data.delivery_fee);
+          } else {
+            setDeliveryFee(350); // fallback LKR
+          }
+        } else {
+          const err = await res.json().catch(() => ({}));
+          setDeliveryError(err.error || 'Failed to check delivery rates');
+        }
+      } catch (err) {
+        setDeliveryError(err.message || 'Error checking delivery rates');
+      } finally {
+        setIsCheckingDelivery(false);
+      }
+    }
+
+    fetchDeliveryRate();
+  }, [selectedCity, deliveryDate]);
+
+  // Order Submission to POST /api/order
+  const handlePlaceOrder = async () => {
+    const cartPayload = cart.map(item => ({
+      product_id: item.product_id || item.id,
+      quantity: item.quantity
+    }));
+    
+    const recParts = recipientName.trim().split(/\s+/);
+    const recipient = {
+      first_name: recParts[0] || 'Recipient',
+      last_name: recParts.slice(1).join(' ') || 'Name',
+      phone: recipientPhone,
+      email: 'recipient@kapruka.com'
+    };
+    
+    const delivery = {
+      street_address: `${streetAddress} (Type: ${locationType}) ${deliveryInstructions ? `| Instructions: ${deliveryInstructions}` : ''}`,
+      city: selectedCity,
+      delivery_date: deliveryDate
+    };
+    
+    let sender = {};
+    if (sendAnonymously) {
+      sender = {
+        first_name: 'Anonymous',
+        last_name: 'Sender',
+        phone: '0000000000',
+        email: 'anonymous@kapruka.com'
+      };
+    } else {
+      const sndParts = senderName.trim().split(/\s+/);
+      sender = {
+        first_name: sndParts[0] || 'Sender',
+        last_name: sndParts.slice(1).join(' ') || 'Name',
+        phone: senderPhone || '0000000000',
+        email: senderEmail || 'customer@kapruka.com'
+      };
+    }
+    
+    const orderBody = {
+      cart: cartPayload,
+      recipient,
+      delivery,
+      sender,
+      gift_message: giftMessage || undefined
+    };
+    
+    setIsCheckingDelivery(true);
+    try {
+      const res = await fetch('/api/order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderBody)
+      });
+      
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to place order');
+      }
+      
+      const data = await res.json();
+      
+      // Clear cart on successful order placement and set order confirmation details
+      setConfirmedOrder({
+        order_number: data.order_number || data.order_ref || data.orderId || 'ORD-' + Math.floor(Math.random()*90000 + 10000),
+        checkout_url: data.checkout_url || data.pay_link || data.payment_url || 'https://www.kapruka.com/payment',
+        total: total
+      });
+      setCart([]);
+      setCheckoutStep(4);
+    } catch (err) {
+      alert(`Order placement failed: ${err.message}`);
+    } finally {
+      setIsCheckingDelivery(false);
+    }
+  };
+
+  // Calculate totals
+  const subtotal = cart.reduce((acc, item) => {
+    const price = typeof item.price === 'number' ? item.price : parseFloat(String(item.price).replace(/[^0-9.]/g, '')) || 0;
+    return acc + (price * item.quantity);
+  }, 0);
+  const total = subtotal + (deliveryFee || 0);
+
+  return (
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-950 font-sans">
+      
+      {/* 1. SIDEBAR: Quick Discovery & Health checks */}
+      <div className="hidden md:flex flex-col w-80 bg-slate-900 border-r border-slate-800 text-slate-200">
+        
+        {/* Brand Logo Header */}
+        <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-kapruka-purple flex items-center justify-center border border-kapruka-purple-light shadow-lg">
+              <ShoppingBag className="w-5 h-5 text-kapruka-yellow" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold font-outfit tracking-wide text-white flex items-center gap-1.5">
+                KAPRUKA <span className="text-kapruka-yellow text-xs font-semibold px-1.5 py-0.5 rounded bg-kapruka-purple-deep border border-kapruka-purple-light">AI</span>
+              </h1>
+              <p className="text-[10px] text-slate-400">{language === 'si' ? 'සාප්පු සවාරි සහ තෑගි සහායකයා' : 'Shopping & Gift Assistant'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* API Connection Health indicator */}
+        <div className="px-6 py-3 bg-slate-900/40 border-b border-slate-800 flex items-center justify-between text-xs">
+          <span className="text-slate-400 flex items-center gap-1.5">
+            <Globe className="w-3.5 h-3.5" /> {translations[language].backendBridge}:
+          </span>
+          {apiStatus.checking ? (
+            <span className="text-gray-400 font-mono">{translations[language].checking}</span>
+          ) : apiStatus.connected ? (
+            <span className="text-emerald-400 font-semibold flex items-center gap-1 animate-pulse">
+              ● {translations[language].connected}
+            </span>
+          ) : (
+            <span className="text-rose-400 font-semibold flex items-center gap-1">
+              ● {translations[language].disconnected}
+            </span>
+          )}
+        </div>
+
+        {/* Side panels (Catalog search & Order tracking) */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          
+          {/* Catalog Search Panel */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
+            <h2 className="text-sm font-semibold font-outfit text-white flex items-center gap-2">
+              <Search className="w-4 h-4 text-kapruka-yellow" /> {translations[language].directCatalogQuery}
+            </h2>
+            <form onSubmit={handleSearchCatalog} className="space-y-2">
+              <input 
+                type="text" 
+                placeholder={translations[language].searchPlaceholder} 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+              />
+              <button 
+                type="submit" 
+                disabled={isSearching}
+                className="w-full bg-kapruka-purple hover:bg-kapruka-purple-light text-white font-semibold py-1.5 px-3 rounded-lg text-xs transition duration-200"
+              >
+                {isSearching ? translations[language].searchingButton : translations[language].searchToolsButton}
+              </button>
+            </form>
+          </div>
+
+          {/* Quick suggestions */}
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">{translations[language].popularGifts}</h3>
+            <div className="flex flex-wrap gap-1.5">
+              {searchChips.map((chip, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleChipClick(chip.query)}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700/60 transition duration-150 flex items-center gap-1"
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Order Tracker Summary */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
+            <h2 className="text-sm font-semibold font-outfit text-white flex items-center gap-2">
+              <Truck className="w-4 h-4 text-kapruka-yellow" /> {translations[language].liveOrderTracker}
+            </h2>
+            <div className="space-y-2">
+              <input 
+                type="text" 
+                placeholder={translations[language].orderNumPlaceholder} 
+                value={trackOrderNum}
+                onChange={e => setTrackOrderNum(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+              />
+              <button
+                onClick={async () => {
+                  if (!trackOrderNum) return;
+                  setIsTrackLoading(true);
+                  const startTime = Date.now();
+                  try {
+                    const res = await fetch(`/api/track?order_number=${trackOrderNum}`);
+                    if (res.ok) {
+                      const data = await res.json();
+                      const elapsed = Date.now() - startTime;
+                      const delay = Math.max(0, 500 - elapsed);
+                      if (delay > 0) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                      }
+                      setOrderTrackingDetails(data);
+                    }
+                  } catch (err) {
+                    console.error('Track error:', err);
+                  } finally {
+                    setIsTrackLoading(false);
+                  }
+                }}
+                className="w-full border border-slate-700 hover:bg-slate-800 text-slate-300 font-semibold py-1.5 px-3 rounded-lg text-xs transition duration-200"
+              >
+                {isTrackLoading ? translations[language].trackingButton : translations[language].queryTrackerButton}
+              </button>
+            </div>
+            
+            {orderTrackingDetails && (
+              <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 text-[11px] text-slate-300 space-y-1">
+                <p className="font-semibold text-white">{language === 'si' ? 'තත්ත්වය' : 'Status'}: {orderTrackingDetails.status || 'Received'}</p>
+                <p>{language === 'si' ? 'බෙදාහැරීම' : 'Dispatch'}: {orderTrackingDetails.dispatch_date || 'Pending'}</p>
+                <p>{language === 'si' ? 'යාවත්කාලීන කිරීම්' : 'Updates'}: {orderTrackingDetails.last_update || 'In Transit'}</p>
+              </div>
+            )}
+          </div>
+
+        </div>
+
+        {/* Footer Credits */}
+        <div className="p-4 border-t border-slate-800 bg-slate-950/30 text-center text-[10px] text-slate-500">
+          Kapruka Agent Challenge v1.0.0
+        </div>
+      </div>
+
+      {/* 2. MAIN WORKSPACE: Chat Surface + Product Card Panel */}
+      <div className="flex-1 flex flex-col h-full bg-slate-950 relative overflow-hidden">
+        {/* Premium radial glowing background */}
+        <div className="premium-glow-bg" />
+
+        {/* Main UI Header with Bilingual Selector Toggle */}
+        <div className="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-6 py-4 flex items-center justify-between shrink-0 z-10">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-kapruka-yellow animate-pulse" />
+            <span className="text-sm font-bold font-outfit text-white tracking-wide">
+              {translations[language].assistantTitle}
+            </span>
+          </div>
+          
+          {/* Language Toggle Selector */}
+          <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800/80 gap-0.5">
+            <button
+              onClick={() => setLanguage('en')}
+              className={`px-2.5 py-1 rounded-md text-[10px] font-bold font-outfit transition-all duration-150 ${
+                language === 'en'
+                  ? 'bg-kapruka-purple text-kapruka-yellow shadow-md shadow-kapruka-purple/30 border border-kapruka-purple-light/20'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              English
+            </button>
+            <button
+              onClick={() => setLanguage('si')}
+              className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all duration-150 ${
+                language === 'si'
+                  ? 'bg-kapruka-purple text-kapruka-yellow shadow-md shadow-kapruka-purple/30 border border-kapruka-purple-light/20'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              සිංහල
+            </button>
+            <button
+              onClick={() => setLanguage('tanglish')}
+              className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all duration-150 ${
+                language === 'tanglish'
+                  ? 'bg-kapruka-purple text-kapruka-yellow shadow-md shadow-kapruka-purple/30 border border-kapruka-purple-light/20'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Tanglish
+            </button>
+          </div>
+        </div>
+        
+        {/* Mobile / Tiny Screen Header */}
+        <div className="md:hidden p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between z-10">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5 text-kapruka-yellow" />
+            <h1 className="text-lg font-bold font-outfit text-white">KAPRUKA AI</h1>
+          </div>
+          <button 
+            onClick={() => setIsCartOpen(!isCartOpen)} 
+            className="relative p-2 bg-slate-800 rounded-lg text-white"
+          >
+            <ShoppingCart className="w-5 h-5" />
+            {cart.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-kapruka-yellow text-slate-950 font-bold text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center">
+                {cart.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Messaging Area */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 z-10">
+          
+          {/* Welcome Notification Banner */}
+          <div className="max-w-2xl mx-auto bg-gradient-to-r from-kapruka-purple-deep to-slate-900 rounded-xl p-4 border border-kapruka-purple-light/40 flex items-start gap-4 relative overflow-hidden premium-glow-border">
+            <Sparkles className="w-6 h-6 text-kapruka-yellow shrink-0 mt-0.5 animate-pulse" />
+            <div className="text-xs space-y-1 z-10">
+              <h4 className="font-bold text-white font-outfit">{translations[language].welcomeTitle}</h4>
+              <p className="text-slate-300">{translations[language].welcomeText}</p>
+            </div>
+          </div>
+
+          {/* Messages Loop */}
+          <div className="max-w-2xl mx-auto space-y-4 pt-4">
+            {messages.map((msg) => (
+              <div 
+                key={msg.id}
+                className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
+              >
+                {msg.sender === 'agent' && (
+                  <div className="w-8 h-8 rounded-lg bg-kapruka-purple flex items-center justify-center border border-kapruka-purple-light text-kapruka-yellow shrink-0 font-bold text-xs">
+                    KA
+                  </div>
+                )}
+                
+                <div className="flex-1 max-w-[85%] space-y-2">
+                  <div className={`rounded-2xl p-4 text-sm leading-relaxed ${
+                    msg.sender === 'user' 
+                      ? 'bg-kapruka-purple text-white rounded-br-none border border-kapruka-purple-light'
+                      : 'bg-slate-900/90 text-slate-200 rounded-bl-none border border-slate-800'
+                  }`}>
+                    {msg.isPlaceholder ? (
+                      <div className="flex items-center gap-1.5 py-1 px-1">
+                        <span className="w-2 h-2 rounded-full bg-kapruka-yellow animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                        <span className="w-2 h-2 rounded-full bg-kapruka-yellow animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                        <span className="w-2 h-2 rounded-full bg-kapruka-yellow animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                      </div>
+                    ) : (
+                      <div className="whitespace-pre-line prose prose-invert">
+                        {msg.products && msg.products.length > 0 ? cleanChatText(msg.text) : msg.text}
+                      </div>
+                    )}
+                    {!msg.isPlaceholder && (
+                      <span className="text-[10px] text-slate-500 block mt-2 text-right">
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Inline skeleton loader while search runs */}
+                  {msg.isPlaceholder && isSearching && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2 max-w-xl animate-pulse">
+                      <ProductSkeleton />
+                      <ProductSkeleton />
+                    </div>
+                  )}
+
+                  {/* Inline rich visual product cards */}
+                  {msg.products && msg.products.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2 max-w-xl">
+                      {msg.products.map((product) => (
+                        <ProductCard 
+                          key={product.product_id || product.id} 
+                          product={product} 
+                          onAddToCart={addToCart} 
+                          language={language}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Visual Product Search Result Grid */}
+          {searchResults.length > 0 && (
+            <div className="max-w-2xl mx-auto border-t border-slate-800/80 pt-6 mt-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-outfit text-md font-bold text-white flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-kapruka-yellow" /> {translations[language].recommendedGifts}
+                </h3>
+                <button 
+                  onClick={() => setSearchResults([])}
+                  className="text-xs text-slate-400 hover:text-white flex items-center gap-1"
+                >
+                  <X className="w-3.5 h-3.5" /> {translations[language].clearResults}
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {searchResults.map((product) => (
+                  <ProductCard 
+                    key={product.product_id || product.id} 
+                    product={product} 
+                    onAddToCart={addToCart} 
+                    language={language}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Input Bar */}
+        <div className="p-4 bg-slate-900 border-t border-slate-800 z-10">
+          <form onSubmit={handleSendMessage} className="max-w-2xl mx-auto flex gap-3">
+            <input 
+              type="text"
+              placeholder={translations[language].inputPlaceholder}
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              className="flex-1 bg-slate-950 border border-slate-850 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-kapruka-purple-light"
+            />
+            <button 
+              type="submit"
+              className="bg-kapruka-yellow hover:bg-yellow-dark text-slate-950 font-bold px-5 py-3 rounded-xl transition duration-200 flex items-center justify-center shadow-lg font-outfit"
+            >
+              {translations[language].sendButton}
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+
+      {/* 3. CART DRAWER: Visual Shopping Cart & Delivery Checkout Form */}
+      {isCartOpen && (
+        <div className="w-96 bg-slate-900 border-l border-slate-850 flex flex-col h-full text-slate-200">
+          
+          {/* CART DRAWER CONTENT */}
+          {checkoutStep === null ? (
+            // Standard Cart Review
+            <>
+              <div className="p-6 border-b border-slate-850 flex items-center justify-between">
+                <h2 className="text-lg font-bold font-outfit text-white flex items-center gap-2">
+                  <ShoppingCart className="w-5 h-5 text-kapruka-yellow" /> {translations[language].sidebarHeader}
+                </h2>
+                <div className="flex items-center gap-2">
+                  {cart.length > 0 && (
+                    <button
+                      onClick={() => setCart([])}
+                      className="text-[10px] text-rose-400 hover:text-rose-350 font-bold px-2 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition"
+                    >
+                      {translations[language].clearCart}
+                    </button>
+                  )}
+                  <span className="bg-kapruka-purple text-white px-2.5 py-0.5 rounded-full text-xs font-bold font-outfit">
+                    {cart.reduce((a, b) => a + b.quantity, 0)} {translations[language].itemsBadge}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {cart.length === 0 ? (
+                  <div className="h-60 flex flex-col items-center justify-center text-slate-500 text-center px-4 space-y-2">
+                    <ShoppingBag className="w-12 h-12 text-slate-700 animate-bounce" />
+                    <p className="text-sm font-semibold">
+                      {language === 'si' ? 'ඔබගේ කරත්තය හිස්ය' : language === 'tanglish' ? 'Oyage cart eka empty' : 'Your cart is empty'}
+                    </p>
+                    <p className="text-xs">
+                      {language === 'si' ? 'භාණ්ඩ සෙවීමට සහායකයාගෙන් විමසන්න, නැතහොත් සෙවුම් මෙවලම් භාවිත කරන්න.' : language === 'tanglish' ? 'Agent gen ahanna products hoyanna hari, direct query karන්න...' : 'Ask the agent to find something, or query products directly from the sidebar.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {cart.map((item) => {
+                      const id = item.product_id || item.id;
+                      const title = item.title || item.name || 'Kapruka Gift';
+                      const price = item.price || 'LKR 3,500';
+                      const numPrice = typeof price === 'number' ? price : parseFloat(String(price).replace(/[^0-9.]/g, '')) || 0;
+
+                      return (
+                        <div key={id} className="bg-slate-950/60 p-3 rounded-xl border border-slate-850 flex gap-3 items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-slate-900 rounded-lg overflow-hidden shrink-0">
+                              <img src={item.image || item.image_url || 'https://via.placeholder.com/50'} alt={title} className="w-full h-full object-cover" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-white line-clamp-1">{title}</h4>
+                              <p className="text-kapruka-yellow text-xs font-outfit font-bold">LKR {numPrice.toLocaleString()}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg">
+                              <button onClick={() => updateQuantity(id, -1)} className="p-1 hover:text-white"><Minus className="w-3 h-3" /></button>
+                              <span className="text-xs font-bold px-2">{item.quantity}</span>
+                              <button onClick={() => updateQuantity(id, 1)} className="p-1 hover:text-white"><Plus className="w-3 h-3" /></button>
+                            </div>
+                            <button onClick={() => removeFromCart(id)} className="text-slate-500 hover:text-rose-400 p-1">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Totals & Order Actions */}
+              {cart.length > 0 && (
+                <div className="p-6 bg-slate-950/80 border-t border-slate-850 space-y-4">
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">{translations[language].subtotal}</span>
+                      <span className="font-bold">LKR {subtotal.toLocaleString()}</span>
+                    </div>
+                    <div className="border-t border-slate-800 pt-2 flex justify-between text-sm font-bold text-white">
+                      <span>{language === 'si' ? 'භාණ්ඩ එකතුව (තක්සේරුව)' : 'Subtotal Est.'}</span>
+                      <span className="font-outfit text-kapruka-yellow text-md">LKR {subtotal.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => setCheckoutStep(1)}
+                    className="w-full font-bold py-3 rounded-xl bg-kapruka-yellow hover:bg-yellow-dark text-slate-950 transition duration-200 shadow-xl text-center block text-sm font-outfit"
+                  >
+                    {translations[language].proceedToCheckout}
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            // Steps 1 to 4 Wizard Content
+            <div className="flex flex-col h-full">
+              {/* Header with Step Indicator */}
+              <div className="p-6 border-b border-slate-850">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-md font-bold font-outfit text-white">
+                    {checkoutStep === 1 && (language === 'si' ? "පියවර 1: ලබන්නා සහ ලිපිනය" : language === 'tanglish' ? "Step 1: Recipient & Address" : "Step 1: Recipient & Address")}
+                    {checkoutStep === 2 && (language === 'si' ? "පියවර 2: බෙදා හැරීම සහ තෑග්ග" : language === 'tanglish' ? "Step 2: Delivery & Gift" : "Step 2: Delivery & Gift")}
+                    {checkoutStep === 3 && (language === 'si' ? "පියවර 3: යවන්නාගේ තොරතුරු" : language === 'tanglish' ? "Step 3: Sender Details" : "Step 3: Sender Details")}
+                    {checkoutStep === 4 && (language === 'si' ? "ඇණවුම තහවුරුයි!" : language === 'tanglish' ? "Order Confirmed!" : "Order Confirmed!")}
+                  </h2>
+                  {checkoutStep < 4 && (
+                    <span className="text-xs text-slate-400 font-semibold font-mono">
+                      {language === 'si' ? `පියවර ${checkoutStep} න් 3ක්` : language === 'tanglish' ? `Step ${checkoutStep} of 3` : `Step ${checkoutStep} of 3`}
+                    </span>
+                  )}
+                </div>
+                {/* Visual Step Progress Bar */}
+                {checkoutStep < 4 && (
+                  <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-kapruka-yellow h-full transition-all duration-300"
+                      style={{ width: `${(checkoutStep / 3) * 100}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Scrollable Wizard Fields */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                
+                {/* STEP 1: Recipient & Address Info */}
+                {checkoutStep === 1 && (
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].recipientName}</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. John Doe"
+                        value={recipientName}
+                        onChange={e => setRecipientName(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].recipientPhone}</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 0771234567"
+                        value={recipientPhone}
+                        onChange={e => handleRecipientPhoneChange(e.target.value)}
+                        className={`w-full bg-slate-950 border rounded-lg px-3 py-2 text-xs text-white focus:outline-none ${
+                          recipientPhoneError ? 'border-rose-500 focus:border-rose-500' : 'border-slate-800 focus:border-kapruka-purple'
+                        }`}
+                      />
+                      {recipientPhoneError && (
+                        <p className="text-[10px] text-rose-400 font-semibold">{recipientPhoneError}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].streetAddress}</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 45 Galle Road"
+                        value={streetAddress}
+                        onChange={e => setStreetAddress(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                      />
+                    </div>
+
+                    <div className="space-y-1 relative">
+                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].city}</label>
+                      <input 
+                        type="text" 
+                        placeholder="Type city (e.g. Colombo, Galle)"
+                        value={cityQuery}
+                        onChange={e => setCityQuery(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                      />
+                      {cities.length > 0 && (
+                        <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-800 rounded-lg shadow-xl overflow-hidden max-h-40 overflow-y-auto">
+                          {cities.map((city, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCity(city);
+                                setCityQuery(city);
+                                setCities([]);
+                              }}
+                              className="w-full text-left px-3 py-2 text-[11px] text-slate-300 hover:bg-kapruka-purple/20 hover:text-kapruka-yellow border-b border-slate-850"
+                            >
+                              {city}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].locationType}</label>
+                      <select
+                        value={locationType}
+                        onChange={e => setLocationType(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                      >
+                        <option value="house">{language === 'si' ? 'නිවස' : 'House'}</option>
+                        <option value="apartment">{language === 'si' ? 'මහල් නිවාසය' : 'Apartment'}</option>
+                        <option value="office">{language === 'si' ? 'කාර්යාලය' : 'Office'}</option>
+                        <option value="other">{language === 'si' ? 'වෙනත්' : 'Other'}</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 2: Delivery Date & Gift Message */}
+                {checkoutStep === 2 && (
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].deliveryDate}</label>
+                      <input 
+                        type="date" 
+                        min={new Date().toISOString().split('T')[0]}
+                        value={deliveryDate}
+                        onChange={e => setDeliveryDate(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                      />
+                    </div>
+
+                    {isCheckingDelivery && (
+                      <div className="text-xs text-kapruka-yellow flex items-center gap-1.5 animate-pulse">
+                        <Clock className="w-3.5 h-3.5" /> {language === 'si' ? 'බෙදා හැරීමේ ගාස්තු සහ පවතින බව පරීක්ෂා කරමින්...' : language === 'tanglish' ? 'Validating delivery rate and availability...' : 'Validating delivery rate and availability...'}
+                      </div>
+                    )}
+
+                    {deliveryError && (
+                      <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-xs font-semibold">
+                        ⚠️ {deliveryError}
+                      </div>
+                    )}
+
+                    {deliveryFee !== null && !deliveryError && (
+                      <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 rounded-lg text-xs font-semibold">
+                        {language === 'si' ? `✓ බෙදා හැරීම සිදු කළ හැක! ගාස්තුව: LKR ${deliveryFee.toLocaleString()}` : language === 'tanglish' ? `✓ Delivery available! Flat shipping rate: LKR ${deliveryFee.toLocaleString()}` : `✓ Delivery available! Flat shipping rate: LKR ${deliveryFee.toLocaleString()}`}
+                      </div>
+                    )}
+
+                    {hasPerishableItems() && deliveryDate && (
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-xs font-semibold">
+                        {language === 'si' ? '⚠️ ඉක්මනින් නරක් වන ද්‍රව්‍ය අඩංගු වේ. කරුණාකර ලබන්නා සිටින බව තහවුරු කරගන්න.' : language === 'tanglish' ? '⚠️ Contains perishable items. Please ensure someone is present at the delivery location.' : '⚠️ Contains perishable items. Please ensure someone is present at the delivery location.'}
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].greetingCard}</label>
+                      <textarea 
+                        rows={3}
+                        placeholder="e.g. Happy Birthday Mom! Wish you a great day."
+                        value={giftMessage}
+                        onChange={e => setGiftMessage(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].deliveryInstructions}</label>
+                      <textarea 
+                        rows={2}
+                        placeholder="e.g. Ring the bell twice / Blue gate / Near the supermarket"
+                        value={deliveryInstructions}
+                        onChange={e => setDeliveryInstructions(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 3: Sender Details */}
+                {checkoutStep === 3 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-slate-950/60 border border-slate-850 rounded-xl">
+                      <div className="text-xs">
+                        <p className="font-bold text-white">{translations[language].sendAnonymously}</p>
+                        <p className="text-[10px] text-slate-400">Keep your identity hidden from the recipient</p>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        checked={sendAnonymously}
+                        onChange={e => setSendAnonymously(e.target.checked)}
+                        className="w-4 h-4 accent-kapruka-yellow"
+                      />
+                    </div>
+
+                    {!sendAnonymously && (
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].senderName}</label>
+                          <input 
+                            type="text" 
+                            placeholder="e.g. Jane Doe"
+                            value={senderName}
+                            onChange={e => setSenderName(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].senderPhone}</label>
+                          <input 
+                            type="text" 
+                            placeholder="e.g. 0777654321"
+                            value={senderPhone}
+                            onChange={e => setSenderPhone(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].senderEmail}</label>
+                          <input 
+                            type="email" 
+                            placeholder="e.g. jane@example.com"
+                            value={senderEmail}
+                            onChange={e => setSenderEmail(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Order summary */}
+                    <div className="p-4 bg-slate-950 border border-slate-850 rounded-xl space-y-2 text-xs">
+                      <h4 className="font-bold text-white font-outfit border-b border-slate-800 pb-1.5 mb-2">{translations[language].grandTotalSummary}</h4>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">{translations[language].subtotal}</span>
+                        <span>LKR {subtotal.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">{translations[language].deliveryFee}</span>
+                        <span className="text-kapruka-yellow">LKR {(deliveryFee || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between border-t border-slate-800 pt-2 text-sm font-bold text-white">
+                        <span>{translations[language].totalPay}</span>
+                        <span className="text-kapruka-yellow">LKR {total.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 4: Confirmation Screen */}
+                {checkoutStep === 4 && confirmedOrder && (
+                  <div className="text-center py-6 space-y-5 animate-fade-in">
+                    <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto text-3xl">
+                      ✓
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-bold font-outfit text-white">{translations[language].orderCreatedSuccess}</h3>
+                      <p className="text-xs text-slate-400">
+                        {language === 'si' ? 'ඔබගේ ඇණවුම සාර්ථකව සකස් කර ඇති අතර දැන් ගෙවීම් කළ හැක.' : language === 'tanglish' ? 'Oyage order eka create wela thiyenne, dan pay karanna puluwan.' : 'Your order has been locked and is ready for payment.'}
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-950 border border-slate-850 rounded-xl p-4 space-y-3 text-xs text-left">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">{language === 'si' ? 'ඇණවුම් අංකය:' : 'Order Reference:'}</span>
+                        <span className="font-mono font-bold text-white">{confirmedOrder.order_number}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">{language === 'si' ? 'මුළු මුදල:' : 'Grand Total:'}</span>
+                        <span className="font-bold text-kapruka-yellow">LKR {confirmedOrder.total.toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    <ExpirationCountdown minutes={60} />
+
+                    <a 
+                      href={confirmedOrder.checkout_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full bg-kapruka-yellow hover:bg-yellow-dark text-slate-950 font-bold py-3.5 rounded-xl transition duration-200 shadow-lg text-center block text-sm animate-pulse-yellow font-outfit"
+                    >
+                      {language === 'si' ? 'දැන් ගෙවීම් කරන්න' : 'Complete Payment Now'}
+                    </a>
+
+                    <button
+                      onClick={() => {
+                        setCheckoutStep(null);
+                        setConfirmedOrder(null);
+                      }}
+                      className="text-xs text-slate-400 hover:text-white"
+                    >
+                      {language === 'si' ? 'නැවත සාප්පුව වෙත' : 'Back to Shop'}
+                    </button>
+                  </div>
+                )}
+
+              </div>
+
+              {/* Step Navigation Buttons Footer */}
+              {checkoutStep < 4 && (
+                <div className="p-6 bg-slate-950/80 border-t border-slate-850 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (checkoutStep === 1) {
+                        setCheckoutStep(null);
+                      } else {
+                        setCheckoutStep(prev => prev - 1);
+                      }
+                    }}
+                    className="flex-1 border border-slate-800 hover:bg-slate-800 font-bold py-2.5 rounded-xl text-xs transition duration-150 text-center text-slate-300"
+                  >
+                    {checkoutStep === 1 ? translations[language].backToCart : translations[language].back}
+                  </button>
+                  
+                  {checkoutStep === 1 && (
+                    <button
+                      type="button"
+                      disabled={!recipientName || !recipientPhone || !!recipientPhoneError || !streetAddress || !selectedCity}
+                      onClick={() => setCheckoutStep(2)}
+                      className={`flex-1 font-bold py-2.5 rounded-xl text-xs transition duration-150 text-center ${
+                        recipientName && recipientPhone && !recipientPhoneError && streetAddress && selectedCity
+                          ? 'bg-kapruka-yellow text-slate-950 hover:bg-yellow-dark'
+                          : 'bg-slate-850 text-slate-500 cursor-not-allowed border border-slate-800'
+                      }`}
+                    >
+                      {translations[language].next}
+                    </button>
+                  )}
+
+                  {checkoutStep === 2 && (
+                    <button
+                      type="button"
+                      disabled={!deliveryDate || isCheckingDelivery || !!deliveryError}
+                      onClick={() => setCheckoutStep(3)}
+                      className={`flex-1 font-bold py-2.5 rounded-xl text-xs transition duration-150 text-center ${
+                        deliveryDate && !isCheckingDelivery && !deliveryError
+                          ? 'bg-kapruka-yellow text-slate-950 hover:bg-yellow-dark'
+                          : 'bg-slate-850 text-slate-500 cursor-not-allowed border border-slate-800'
+                      }`}
+                    >
+                      {translations[language].next}
+                    </button>
+                  )}
+
+                  {checkoutStep === 3 && (
+                    <button
+                      type="button"
+                      disabled={isCheckingDelivery || (!sendAnonymously && (!senderName || !senderPhone || !senderEmail))}
+                      onClick={handlePlaceOrder}
+                      className={`flex-1 font-bold py-2.5 rounded-xl text-xs transition duration-150 text-center ${
+                        !isCheckingDelivery && (sendAnonymously || (senderName && senderPhone && senderEmail))
+                          ? 'bg-kapruka-yellow text-slate-950 hover:bg-yellow-dark animate-pulse-yellow'
+                          : 'bg-slate-850 text-slate-500 cursor-not-allowed border border-slate-800'
+                      }`}
+                    >
+                      {isCheckingDelivery ? translations[language].placingOrder : translations[language].placeOrder}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+      )}
+
+    </div>
+  );
+}
