@@ -1316,7 +1316,7 @@ export default function App() {
         {rateLimitError && (
           <div className="bg-rose-500/10 border-b border-rose-500/20 px-6 py-2 flex items-center justify-between text-xs text-rose-300 z-10">
             <span>⚠️ API Rate Limit Exceeded (60 req/min). Please wait a moment before sending more messages.</span>
-            <button onClick={() => setRateLimitError(false)} className="hover:text-rose-100 font-bold">&times;</button>
+            <button onClick={() => setRateLimitError(false)} className="hover:text-rose-100 font-bold" title="Close" aria-label="Close rate limit warning">&times;</button>
           </div>
         )}
         
@@ -1329,6 +1329,8 @@ export default function App() {
           <button 
             onClick={() => setIsCartOpen(!isCartOpen)} 
             className="relative p-2 bg-slate-800 rounded-lg text-white"
+            title={language === 'si' ? 'කරත්තය විවෘත කරන්න' : 'Toggle Cart'}
+            aria-label="Toggle Shopping Cart Drawer"
           >
             <ShoppingCart className="w-5 h-5" />
             {cart.length > 0 && (
@@ -1491,6 +1493,14 @@ export default function App() {
                   <span className="bg-kapruka-purple text-white px-2.5 py-0.5 rounded-full text-xs font-bold font-outfit">
                     {cart.reduce((a, b) => a + b.quantity, 0)} {translations[language].itemsBadge}
                   </span>
+                  <button 
+                    onClick={() => setIsCartOpen(false)}
+                    className="md:hidden text-slate-400 hover:text-white p-1"
+                    title="Close Cart"
+                    aria-label="Close Shopping Cart Drawer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 
@@ -1527,11 +1537,30 @@ export default function App() {
                           
                           <div className="flex items-center gap-2">
                             <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg">
-                              <button onClick={() => updateQuantity(id, -1)} className="p-1 hover:text-white"><Minus className="w-3 h-3" /></button>
+                              <button 
+                                onClick={() => updateQuantity(id, -1)} 
+                                className="p-1 hover:text-white"
+                                title={language === 'si' ? 'ප්‍රමාණය අඩු කරන්න' : 'Decrease quantity'}
+                                aria-label="Decrease quantity"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
                               <span className="text-xs font-bold px-2">{item.quantity}</span>
-                              <button onClick={() => updateQuantity(id, 1)} className="p-1 hover:text-white"><Plus className="w-3 h-3" /></button>
+                              <button 
+                                onClick={() => updateQuantity(id, 1)} 
+                                className="p-1 hover:text-white"
+                                title={language === 'si' ? 'ප්‍රමාණය වැඩි කරන්න' : 'Increase quantity'}
+                                aria-label="Increase quantity"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
                             </div>
-                            <button onClick={() => removeFromCart(id)} className="text-slate-500 hover:text-rose-400 p-1">
+                            <button 
+                              onClick={() => removeFromCart(id)} 
+                              className="text-slate-500 hover:text-rose-400 p-1"
+                              title={language === 'si' ? 'කරත්තයෙන් ඉවත් කරන්න' : 'Remove from cart'}
+                              aria-label="Remove item from cart"
+                            >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
