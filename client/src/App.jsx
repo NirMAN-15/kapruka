@@ -288,9 +288,26 @@ function parseProductsFromMarkdown(mdText) {
         currentProduct.in_stock = false;
       }
       
-      const urlMatch = line.match(/\[[^\]]+\]\((https?:\/\/[^)]+)\)/i) || line.match(/\((https?:\/\/[^)]+)\)/i);
+      const imgMatch = line.match(/!\[[^\]]*\]\((https?:\/\/[^)]+)\)/i);
+      if (imgMatch) {
+        currentProduct.image = imgMatch[1].trim();
+      }
+
+      // Also match text-format image lines: "Image: URL", "Thumbnail: URL", etc.
+      const imgTextMatch = line.match(/(?:Image|Thumbnail|Photo|Img|Picture):\s*(https?:\/\/[^\s]+)/i);
+      if (imgTextMatch) {
+        currentProduct.image = imgTextMatch[1].trim();
+      }
+      
+      // Match URL, making sure it's not an image link by avoiding the leading "!"
+      const urlMatch = line.match(/(?:^|[^!])\[[^\]]+\]\((https?:\/\/[^)]+)\)/i);
       if (urlMatch) {
         currentProduct.url = urlMatch[1].trim();
+      } else if (!line.includes('![') && !currentProduct.url) {
+        const fallbackUrlMatch = line.match(/\((https?:\/\/[^)]+)\)/i);
+        if (fallbackUrlMatch) {
+          currentProduct.url = fallbackUrlMatch[1].trim();
+        }
       }
     }
   }
@@ -307,19 +324,31 @@ function parseProductsFromMarkdown(mdText) {
   
   return products.map(p => {
     if (!p.image || p.image === 'https://via.placeholder.com/150') {
-      const lowerTitle = p.title.toLowerCase();
-      if (lowerTitle.includes('cake') || (p.product_id && p.product_id.toUpperCase().startsWith('CAKE'))) {
-        p.image = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500&auto=format&fit=crop&q=60';
-      } else if (lowerTitle.includes('flower') || lowerTitle.includes('rose') || (p.product_id && p.product_id.toUpperCase().startsWith('FLOWER'))) {
-        p.image = 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=500&auto=format&fit=crop&q=60';
-      } else if (lowerTitle.includes('chocolate') || lowerTitle.includes('choco')) {
-        p.image = 'https://images.unsplash.com/photo-1548907040-4d42b52145ea?w=500&auto=format&fit=crop&q=60';
-      } else if (lowerTitle.includes('toy') || lowerTitle.includes('teddy')) {
-        p.image = 'https://images.unsplash.com/photo-1559251606-c623743a6d76?w=500&auto=format&fit=crop&q=60';
-      } else if (lowerTitle.includes('hamper') || lowerTitle.includes('gift')) {
-        p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
-      } else {
-        p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
+      // Try to derive image from Kapruka CDN using the product URL
+      if (p.url) {
+        const kaprukaIdMatch = p.url.match(/kapruka\.com\/[^/]+\/([A-Za-z0-9_-]+)\/?$/) ||
+                               p.url.match(/kapruka\.com\/kid\/([A-Za-z0-9_-]+)/i);
+        if (kaprukaIdMatch) {
+          const pid = kaprukaIdMatch[1];
+          p.image = `https://www.kapruka.com/spicific/${pid}/0_${pid}.jpg`;
+        }
+      }
+      // If still no real image, fall back to Unsplash category images
+      if (!p.image || p.image === 'https://via.placeholder.com/150') {
+        const lowerTitle = p.title.toLowerCase();
+        if (lowerTitle.includes('cake') || (p.product_id && p.product_id.toUpperCase().startsWith('CAKE'))) {
+          p.image = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500&auto=format&fit=crop&q=60';
+        } else if (lowerTitle.includes('flower') || lowerTitle.includes('rose') || (p.product_id && p.product_id.toUpperCase().startsWith('FLOWER'))) {
+          p.image = 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=500&auto=format&fit=crop&q=60';
+        } else if (lowerTitle.includes('chocolate') || lowerTitle.includes('choco')) {
+          p.image = 'https://images.unsplash.com/photo-1548907040-4d42b52145ea?w=500&auto=format&fit=crop&q=60';
+        } else if (lowerTitle.includes('toy') || lowerTitle.includes('teddy')) {
+          p.image = 'https://images.unsplash.com/photo-1559251606-c623743a6d76?w=500&auto=format&fit=crop&q=60';
+        } else if (lowerTitle.includes('hamper') || lowerTitle.includes('gift')) {
+          p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
+        } else {
+          p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
+        }
       }
     }
     return p;
@@ -490,16 +519,14 @@ function ProductCard({ product, onAddToCart, language = 'en' }) {
             )}
           </button>
 
-          {product.url && (
-            <a
-              href={product.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full font-semibold py-1.5 px-3 rounded-lg text-[11px] border border-slate-700 hover:bg-slate-800 text-slate-350 transition duration-150 flex items-center justify-center gap-1 font-outfit"
-            >
-              <span>{language === 'si' ? 'කප්රුක වෙත' : 'View on Kapruka'}</span>
-            </a>
-          )}
+          <a
+            href={product.url || `https://www.kapruka.com/search?q=${encodeURIComponent(product.title || product.name || '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full font-semibold py-1.5 px-3 rounded-lg text-[11px] border border-kapruka-purple/40 hover:bg-kapruka-purple/20 text-kapruka-yellow transition duration-150 flex items-center justify-center gap-1 font-outfit"
+          >
+            <span>🔗 {language === 'si' ? 'කප්රුකවල බලන්න' : language === 'tanglish' ? 'Kapruka eke balanna' : 'View on Kapruka'}</span>
+          </a>
         </div>
       </div>
     </div>
@@ -509,6 +536,7 @@ function ProductCard({ product, onAddToCart, language = 'en' }) {
 export default function App() {
   // Connection and API health state
   const [apiStatus, setApiStatus] = useState({ connected: false, checking: true });
+  const [rateLimitError, setRateLimitError] = useState(false);
   
   // Chat state
   const [language, setLanguage] = useState('en'); // en, si, tanglish
@@ -575,7 +603,9 @@ export default function App() {
   const [deliveryInstructions, setDeliveryInstructions] = useState('');
   const [senderName, setSenderName] = useState('');
   const [senderPhone, setSenderPhone] = useState('');
+  const [senderPhoneError, setSenderPhoneError] = useState('');
   const [senderEmail, setSenderEmail] = useState('');
+  const [senderEmailError, setSenderEmailError] = useState('');
   const [sendAnonymously, setSendAnonymously] = useState(false);
 
   // Confirmed order details
@@ -660,6 +690,10 @@ export default function App() {
       });
 
       if (!res.ok) {
+        if (res.status === 429) {
+          setRateLimitError(true);
+          throw new Error('Rate limit exceeded (60 requests/min). Please try again in a moment.');
+        }
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || `HTTP error ${res.status}`);
       }
@@ -693,10 +727,20 @@ export default function App() {
         await new Promise(resolve => setTimeout(resolve, remaining));
       }
 
+      const getFriendlyError = (err) => {
+        const msg = err.message || '';
+        if (msg.includes('429') || msg.toLowerCase().includes('rate limit')) {
+          return '⚠️ Too many requests! Please wait a few seconds before trying again.';
+        } else if (msg.toLowerCase().includes('network') || msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('connection')) {
+          return '⚠️ Connection issue. Please check that the backend server is running.';
+        } else {
+          return '⚠️ Something went wrong. Please try again or rephrase your question.';
+        }
+      };
       setMessages(prev => prev.map(m => m.id === loadingId ? {
         id: loadingId,
         sender: 'agent',
-        text: `Sorry, I hit an error connecting to the API bridge: ${err.message}`,
+        text: getFriendlyError(err),
         timestamp: new Date()
       } : m));
     } finally {
@@ -731,6 +775,10 @@ export default function App() {
       });
 
       if (!res.ok) {
+        if (res.status === 429) {
+          setRateLimitError(true);
+          throw new Error('Rate limit exceeded (60 requests/min). Please try again in a moment.');
+        }
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || `HTTP error ${res.status}`);
       }
@@ -762,10 +810,20 @@ export default function App() {
         await new Promise(resolve => setTimeout(resolve, remaining));
       }
 
+      const getFriendlyErrorChip = (err) => {
+        const msg = err.message || '';
+        if (msg.includes('429') || msg.toLowerCase().includes('rate limit')) {
+          return '⚠️ Too many requests! Please wait a few seconds before trying again.';
+        } else if (msg.toLowerCase().includes('network') || msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('connection')) {
+          return '⚠️ Connection issue. Please check that the backend server is running.';
+        } else {
+          return '⚠️ Something went wrong. Please try again or rephrase your question.';
+        }
+      };
       setMessages(prev => prev.map(m => m.id === loadingId ? {
         id: loadingId,
         sender: 'agent',
-        text: `Sorry, I hit an error connecting to the API bridge: ${err.message}`,
+        text: getFriendlyErrorChip(err),
         timestamp: new Date()
       } : m));
     } finally {
@@ -818,7 +876,7 @@ export default function App() {
     setCart(prev => prev.map(item => {
       if (item.product_id === id || item.id === id) {
         const newQty = item.quantity + delta;
-        return newQty > 0 ? { ...item, quantity: newQty } : item;
+        return { ...item, quantity: newQty };
       }
       return item;
     }).filter(item => item.quantity > 0));
@@ -853,13 +911,39 @@ export default function App() {
   // Recipient phone number validation
   const handleRecipientPhoneChange = (val) => {
     setRecipientPhone(val);
-    const slPhoneRegex = /^(?:\+94|0)?7[0-9]{8}$/;
+    const permissivePhoneRegex = /^[0-9+\-\s()]{7,15}$/;
     if (!val) {
       setRecipientPhoneError(translations[language].phoneRequired);
-    } else if (!slPhoneRegex.test(val)) {
+    } else if (!permissivePhoneRegex.test(val)) {
       setRecipientPhoneError(translations[language].phoneInvalid);
     } else {
       setRecipientPhoneError('');
+    }
+  };
+
+  // Sender phone number validation
+  const handleSenderPhoneChange = (val) => {
+    setSenderPhone(val);
+    const permissivePhoneRegex = /^[0-9+\-\s()]{7,15}$/;
+    if (!val) {
+      setSenderPhoneError(language === 'si' ? 'දුරකථන අංකය අවශ්‍යයි' : 'Phone number is required');
+    } else if (!permissivePhoneRegex.test(val)) {
+      setSenderPhoneError(language === 'si' ? 'වලංගු නොවන ආකෘතියකි' : 'Invalid phone format');
+    } else {
+      setSenderPhoneError('');
+    }
+  };
+
+  // Sender email validation
+  const handleSenderEmailChange = (val) => {
+    setSenderEmail(val);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!val) {
+      setSenderEmailError(language === 'si' ? 'විද්‍යුත් තැපෑල අවශ්‍යයි' : 'Email is required');
+    } else if (val.length > 0 && !val.includes('@')) {
+      setSenderEmailError(language === 'si' ? 'වලංගු නොවන විද්‍යුත් තැපෑලකි' : 'Invalid email format');
+    } else {
+      setSenderEmailError('');
     }
   };
 
@@ -1108,17 +1192,20 @@ export default function App() {
                   const startTime = Date.now();
                   try {
                     const res = await fetch(`/api/track?order_number=${trackOrderNum}`);
+                    const data = await res.json().catch(() => ({ error: 'Tracking query failed' }));
+                    const elapsed = Date.now() - startTime;
+                    const delay = Math.max(0, 500 - elapsed);
+                    if (delay > 0) {
+                      await new Promise(resolve => setTimeout(resolve, delay));
+                    }
                     if (res.ok) {
-                      const data = await res.json();
-                      const elapsed = Date.now() - startTime;
-                      const delay = Math.max(0, 500 - elapsed);
-                      if (delay > 0) {
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                      }
                       setOrderTrackingDetails(data);
+                    } else {
+                      setOrderTrackingDetails({ text: data.error || 'Order tracking failed.' });
                     }
                   } catch (err) {
                     console.error('Track error:', err);
+                    setOrderTrackingDetails({ text: err.message });
                   } finally {
                     setIsTrackLoading(false);
                   }
@@ -1131,9 +1218,40 @@ export default function App() {
             
             {orderTrackingDetails && (
               <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 text-[11px] text-slate-300 space-y-1">
-                <p className="font-semibold text-white">{language === 'si' ? 'තත්ත්වය' : 'Status'}: {orderTrackingDetails.status || 'Received'}</p>
-                <p>{language === 'si' ? 'බෙදාහැරීම' : 'Dispatch'}: {orderTrackingDetails.dispatch_date || 'Pending'}</p>
-                <p>{language === 'si' ? 'යාවත්කාලීන කිරීම්' : 'Updates'}: {orderTrackingDetails.last_update || 'In Transit'}</p>
+                {(() => {
+                  const resultText = orderTrackingDetails.result || orderTrackingDetails.text || JSON.stringify(orderTrackingDetails);
+                  if (typeof resultText === 'string' && (resultText.includes('Error') || resultText.includes('error_not_found'))) {
+                    return <p className="font-semibold text-rose-400">{resultText}</p>;
+                  }
+                  
+                  let status = 'Received';
+                  const lowerText = typeof resultText === 'string' ? resultText.toLowerCase() : '';
+                  if (lowerText.includes('delivered')) status = 'Delivered';
+                  else if (lowerText.includes('transit')) status = 'Transit';
+                  else if (lowerText.includes('dispatch')) status = 'Dispatch';
+                  else if (lowerText.includes('confirmed')) status = 'Confirmed';
+                  else if (lowerText.includes('received')) status = 'Received';
+                  else if (orderTrackingDetails.status) status = orderTrackingDetails.status;
+                  
+                  const steps = ['Received', 'Confirmed', 'Dispatch', 'Transit', 'Delivered'];
+                  const currentIndex = steps.findIndex(s => s.toLowerCase() === status.toLowerCase());
+                  
+                  return (
+                    <>
+                      <p className="font-semibold text-white">{language === 'si' ? 'තත්ත්වය' : 'Status'}: {status}</p>
+                      <p>{language === 'si' ? 'බෙදාහැරීම' : 'Dispatch'}: {orderTrackingDetails.dispatch_date || 'Pending'}</p>
+                      <p className="mt-1 mb-2 line-clamp-2">{language === 'si' ? 'යාවත්කාලීන කිරීම්' : 'Updates'}: {orderTrackingDetails.last_update || (typeof resultText === 'string' ? resultText : 'In Transit')}</p>
+                      <div className="flex flex-col gap-1.5 mt-3 pt-2 border-t border-slate-800/60">
+                        {steps.map((step, index) => (
+                          <div key={step} className="flex items-center gap-2">
+                            <div className={`w-2.5 h-2.5 rounded-full ${index <= currentIndex ? 'bg-kapruka-yellow' : 'bg-slate-700'}`}></div>
+                            <span className={index <= currentIndex ? 'text-white font-medium' : 'text-slate-500'}>{step}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -1194,6 +1312,13 @@ export default function App() {
             </button>
           </div>
         </div>
+        
+        {rateLimitError && (
+          <div className="bg-rose-500/10 border-b border-rose-500/20 px-6 py-2 flex items-center justify-between text-xs text-rose-300 z-10">
+            <span>⚠️ API Rate Limit Exceeded (60 req/min). Please wait a moment before sending more messages.</span>
+            <button onClick={() => setRateLimitError(false)} className="hover:text-rose-100 font-bold">&times;</button>
+          </div>
+        )}
         
         {/* Mobile / Tiny Screen Header */}
         <div className="md:hidden p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between z-10">
@@ -1344,7 +1469,7 @@ export default function App() {
 
       {/* 3. CART DRAWER: Visual Shopping Cart & Delivery Checkout Form */}
       {isCartOpen && (
-        <div className="w-96 bg-slate-900 border-l border-slate-850 flex flex-col h-full text-slate-200">
+        <div className="absolute inset-y-0 right-0 z-50 w-full sm:w-96 md:relative md:w-96 bg-slate-900 border-l border-slate-850 flex flex-col h-full text-slate-200">
           
           {/* CART DRAWER CONTENT */}
           {checkoutStep === null ? (
@@ -1562,10 +1687,14 @@ export default function App() {
                 {checkoutStep === 2 && (
                   <div className="space-y-4">
                     <div className="space-y-1">
-                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].deliveryDate}</label>
+                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                        {translations[language].deliveryDate}
+                        <span className="ml-1 font-normal text-slate-500 normal-case">(tomorrow – 90 days)</span>
+                      </label>
                       <input 
                         type="date" 
-                        min={new Date().toISOString().split('T')[0]}
+                        min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })()}
+                        max={(() => { const d = new Date(); d.setDate(d.getDate() + 90); return d.toISOString().split('T')[0]; })()}
                         value={deliveryDate}
                         onChange={e => setDeliveryDate(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
@@ -1655,9 +1784,14 @@ export default function App() {
                             type="text" 
                             placeholder="e.g. 0777654321"
                             value={senderPhone}
-                            onChange={e => setSenderPhone(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                            onChange={e => handleSenderPhoneChange(e.target.value)}
+                            className={`w-full bg-slate-950 border rounded-lg px-3 py-2 text-xs text-white focus:outline-none ${
+                              senderPhoneError ? 'border-rose-500 focus:border-rose-500' : 'border-slate-800 focus:border-kapruka-purple'
+                            }`}
                           />
+                          {senderPhoneError && (
+                            <p className="text-[10px] text-rose-400 font-semibold">{senderPhoneError}</p>
+                          )}
                         </div>
 
                         <div className="space-y-1">
@@ -1666,9 +1800,14 @@ export default function App() {
                             type="email" 
                             placeholder="e.g. jane@example.com"
                             value={senderEmail}
-                            onChange={e => setSenderEmail(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                            onChange={e => handleSenderEmailChange(e.target.value)}
+                            className={`w-full bg-slate-950 border rounded-lg px-3 py-2 text-xs text-white focus:outline-none ${
+                              senderEmailError ? 'border-rose-500 focus:border-rose-500' : 'border-slate-800 focus:border-kapruka-purple'
+                            }`}
                           />
+                          {senderEmailError && (
+                            <p className="text-[10px] text-rose-400 font-semibold">{senderEmailError}</p>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1720,12 +1859,13 @@ export default function App() {
                     <ExpirationCountdown minutes={60} />
 
                     <a 
-                      href={confirmedOrder.checkout_url}
+                      href={confirmedOrder.checkout_url || 'https://www.kapruka.com/checkout'}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => { const url = confirmedOrder.checkout_url || 'https://www.kapruka.com/checkout'; window.open(url, '_blank'); }}
                       className="w-full bg-kapruka-yellow hover:bg-yellow-dark text-slate-950 font-bold py-3.5 rounded-xl transition duration-200 shadow-lg text-center block text-sm animate-pulse-yellow font-outfit"
                     >
-                      {language === 'si' ? 'දැන් ගෙවීම් කරන්න' : 'Complete Payment Now'}
+                      {language === 'si' ? '🛒 දැන් කප්රුකාවේ ගෙවීම් කරන්න' : language === 'tanglish' ? '🛒 Kapruka eke payment karanna' : '🛒 Complete Payment on Kapruka'}
                     </a>
 
                     <button
@@ -1762,10 +1902,13 @@ export default function App() {
                   {checkoutStep === 1 && (
                     <button
                       type="button"
-                      disabled={!recipientName || !recipientPhone || !!recipientPhoneError || !streetAddress || !selectedCity}
-                      onClick={() => setCheckoutStep(2)}
+                      disabled={!recipientName || !recipientPhone || !!recipientPhoneError || !streetAddress || !cityQuery}
+                      onClick={() => {
+                        setSelectedCity(cityQuery);
+                        setCheckoutStep(2);
+                      }}
                       className={`flex-1 font-bold py-2.5 rounded-xl text-xs transition duration-150 text-center ${
-                        recipientName && recipientPhone && !recipientPhoneError && streetAddress && selectedCity
+                        recipientName && recipientPhone && !recipientPhoneError && streetAddress && cityQuery
                           ? 'bg-kapruka-yellow text-slate-950 hover:bg-yellow-dark'
                           : 'bg-slate-850 text-slate-500 cursor-not-allowed border border-slate-800'
                       }`}
@@ -1777,10 +1920,10 @@ export default function App() {
                   {checkoutStep === 2 && (
                     <button
                       type="button"
-                      disabled={!deliveryDate || isCheckingDelivery || !!deliveryError}
+                      disabled={!deliveryDate || isCheckingDelivery}
                       onClick={() => setCheckoutStep(3)}
                       className={`flex-1 font-bold py-2.5 rounded-xl text-xs transition duration-150 text-center ${
-                        deliveryDate && !isCheckingDelivery && !deliveryError
+                        deliveryDate && !isCheckingDelivery
                           ? 'bg-kapruka-yellow text-slate-950 hover:bg-yellow-dark'
                           : 'bg-slate-850 text-slate-500 cursor-not-allowed border border-slate-800'
                       }`}
@@ -1792,10 +1935,10 @@ export default function App() {
                   {checkoutStep === 3 && (
                     <button
                       type="button"
-                      disabled={isCheckingDelivery || (!sendAnonymously && (!senderName || !senderPhone || !senderEmail))}
+                      disabled={isCheckingDelivery || (!sendAnonymously && (!senderName || !senderPhone || !!senderPhoneError || !senderEmail || !!senderEmailError))}
                       onClick={handlePlaceOrder}
                       className={`flex-1 font-bold py-2.5 rounded-xl text-xs transition duration-150 text-center ${
-                        !isCheckingDelivery && (sendAnonymously || (senderName && senderPhone && senderEmail))
+                        !isCheckingDelivery && (sendAnonymously || (senderName && senderPhone && !senderPhoneError && senderEmail && !senderEmailError))
                           ? 'bg-kapruka-yellow text-slate-950 hover:bg-yellow-dark animate-pulse-yellow'
                           : 'bg-slate-850 text-slate-500 cursor-not-allowed border border-slate-800'
                       }`}

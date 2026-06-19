@@ -9,3 +9,8 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 *.pem
+
+# Non-project documentation and assets (kept locally, not in git)
+_docs/
+*.html
+*_files/

@@ -89,9 +89,25 @@ function parseProductsFromMarkdown(mdText) {
         currentProduct.in_stock = false;
       }
       
-      const urlMatch = line.match(/\[[^\]]+\]\((https?:\/\/[^)]+)\)/i) || line.match(/\((https?:\/\/[^)]+)\)/i);
+      const imgMatch = line.match(/!\[.*?\]\((https?:\/\/[^)]+)\)/i) || line.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i);
+      if (imgMatch) {
+        currentProduct.image = imgMatch[1].trim();
+      }
+
+      // Also match text-format image lines: "Image: URL", "Thumbnail: URL", etc.
+      const imgTextMatch = line.match(/(?:Image|Thumbnail|Photo|Img|Picture):\s*(https?:\/\/[^\s]+)/i);
+      if (imgTextMatch) {
+        currentProduct.image = imgTextMatch[1].trim();
+      }
+      
+      const urlMatch = line.match(/(?:^|[^!])\[.*?\]\((https?:\/\/[^)]+)\)/i);
       if (urlMatch) {
         currentProduct.url = urlMatch[1].trim();
+      } else if (!line.includes('![') && !currentProduct.url) {
+        const fallbackUrlMatch = line.match(/\((https?:\/\/[^)]+)\)/i);
+        if (fallbackUrlMatch) {
+          currentProduct.url = fallbackUrlMatch[1].trim();
+        }
       }
     }
   }
@@ -108,19 +124,33 @@ function parseProductsFromMarkdown(mdText) {
   
   return products.map(p => {
     if (!p.image || p.image === 'https://via.placeholder.com/150') {
-      const lowerTitle = p.title.toLowerCase();
-      if (lowerTitle.includes('cake') || (p.product_id && p.product_id.toUpperCase().startsWith('CAKE'))) {
-        p.image = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500&auto=format&fit=crop&q=60';
-      } else if (lowerTitle.includes('flower') || lowerTitle.includes('rose') || (p.product_id && p.product_id.toUpperCase().startsWith('FLOWER'))) {
-        p.image = 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=500&auto=format&fit=crop&q=60';
-      } else if (lowerTitle.includes('chocolate') || lowerTitle.includes('choco')) {
-        p.image = 'https://images.unsplash.com/photo-1548907040-4d42b52145ea?w=500&auto=format&fit=crop&q=60';
-      } else if (lowerTitle.includes('toy') || lowerTitle.includes('teddy')) {
-        p.image = 'https://images.unsplash.com/photo-1559251606-c623743a6d76?w=500&auto=format&fit=crop&q=60';
-      } else if (lowerTitle.includes('hamper') || lowerTitle.includes('gift')) {
-        p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
-      } else {
-        p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
+      // Try to derive image from Kapruka CDN using the product URL
+      if (p.url) {
+        // Match patterns like /category/PRODUCTID or /kid/PRODUCTID or ending in a numeric/alphanumeric ID
+        const kaprukaIdMatch = p.url.match(/kapruka\.com\/[^/]+\/([A-Za-z0-9_-]+)\/?$/) ||
+                               p.url.match(/kapruka\.com\/kid\/([A-Za-z0-9_-]+)/i);
+        if (kaprukaIdMatch) {
+          const pid = kaprukaIdMatch[1];
+          // Use Kapruka CDN URL pattern
+          p.image = `https://www.kapruka.com/spicific/${pid}/0_${pid}.jpg`;
+        }
+      }
+      // If still no image (URL didn't match or no URL), use Unsplash category fallbacks
+      if (!p.image || p.image === 'https://via.placeholder.com/150') {
+        const lowerTitle = p.title.toLowerCase();
+        if (lowerTitle.includes('cake') || (p.product_id && p.product_id.toUpperCase().startsWith('CAKE'))) {
+          p.image = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500&auto=format&fit=crop&q=60';
+        } else if (lowerTitle.includes('flower') || lowerTitle.includes('rose') || (p.product_id && p.product_id.toUpperCase().startsWith('FLOWER'))) {
+          p.image = 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=500&auto=format&fit=crop&q=60';
+        } else if (lowerTitle.includes('chocolate') || lowerTitle.includes('choco')) {
+          p.image = 'https://images.unsplash.com/photo-1548907040-4d42b52145ea?w=500&auto=format&fit=crop&q=60';
+        } else if (lowerTitle.includes('toy') || lowerTitle.includes('teddy')) {
+          p.image = 'https://images.unsplash.com/photo-1559251606-c623743a6d76?w=500&auto=format&fit=crop&q=60';
+        } else if (lowerTitle.includes('hamper') || lowerTitle.includes('gift')) {
+          p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
+        } else {
+          p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
+        }
       }
     }
     return p;
@@ -363,8 +393,7 @@ app.get('/api/track', ensureMcpConnected, async (req, res) => {
 app.get('/api/status', (req, res) => {
   res.json({
     connected: !!mcpClient,
-    mcpUrl: KAPRUKA_MCP_URL,
-    port: PORT,
+    status: 'ok',
     timestamp: new Date().toISOString()
   });
 });
@@ -389,7 +418,13 @@ Core Instructions:
 9. Track orders using 'kapruka_track_order' and show the structured status timeline.
 
 Remember: When calling tools, the parameters will be passed to the Kapruka remote server. The server expects parameters to be wrapped inside a 'params' object, but you should output standard flat parameters; the backend will automatically wrap them inside 'params' before calling the tool.
-Always be polite, warm, and helpful.`;
+Always be polite, warm, and helpful.
+
+CRITICAL INSTRUCTION FOR LANGUAGE SYNC:
+You MUST accurately detect the language and script of the user's most recent message.
+If the user writes in Sinhala script (සිංහල), your ENTIRE response MUST be in Sinhala script. DO NOT reply in English or Tanglish to a Sinhala script query.
+If the user writes in Tanglish, reply in Tanglish.
+If the user writes in English, reply in English.`;
 
 const CLAUDE_TOOLS = [
   {
@@ -802,7 +837,7 @@ async function runGeminiAgentLoop(messages, clientLang) {
   let dynamicSystemPrompt = SYSTEM_PROMPT;
   if (clientLang) {
     const langNames = { en: 'English', si: 'Sinhala script', tanglish: 'Tanglish (Sinhala language written using the English/Latin alphabet)' };
-    dynamicSystemPrompt += `\n\n[System Override: The user's active UI interface language is set to ${langNames[clientLang] || clientLang}. Make sure your response is fully written in this language: ${langNames[clientLang] || clientLang}.]`;
+    dynamicSystemPrompt += `\n\n[System Override: The user's active UI interface language is set to ${langNames[clientLang] || clientLang}, but ALWAYS reply in the exact language the user writes in (e.g., if they ask in Sinhala, reply in Sinhala; if in English, reply in English).]`;
   }
 
   const systemInstruction = {
@@ -839,13 +874,7 @@ async function runGeminiAgentLoop(messages, clientLang) {
           tools: geminiTools
         };
 
-        if (activeModel.startsWith('gemini-2.') || activeModel.startsWith('gemini-3.')) {
-          requestBody.generationConfig = {
-            thinkingConfig: {
-              thinkingBudget: 0
-            }
-          };
-        }
+        // Removed thinkingConfig to prevent thought_signature API errors with standard models
 
         const res = await fetch(url, {
           method: 'POST',
@@ -929,6 +958,7 @@ async function runGeminiAgentLoop(messages, clientLang) {
       functionResponseParts.push({
         functionResponse: {
           name: func.name,
+          id: call.functionCall.id,
           response: { result: JSON.stringify(toolResponse) }
         }
       });
@@ -986,7 +1016,7 @@ app.post('/api/chat', async (req, res) => {
     let dynamicSystemPrompt = SYSTEM_PROMPT;
     if (clientLang) {
       const langNames = { en: 'English', si: 'Sinhala script', tanglish: 'Tanglish (Sinhala language written using the English/Latin alphabet)' };
-      dynamicSystemPrompt += `\n\n[System Override: The user's active UI interface language is set to ${langNames[clientLang] || clientLang}. Make sure your response is fully written in this language: ${langNames[clientLang] || clientLang}.]`;
+      dynamicSystemPrompt += `\n\n[System Override: The user's active UI interface language is set to ${langNames[clientLang] || clientLang}, but ALWAYS reply in the exact language the user writes in (e.g., if they ask in Sinhala, reply in Sinhala; if in English, reply in English).]`;
     }
 
     while (iteration < maxIterations) {
@@ -1081,6 +1111,9 @@ app.post('/api/chat', async (req, res) => {
 
   } catch (error) {
     console.error('Error in /api/chat endpoint:', error.message || error);
+    if (error.status === 429 || (error.message && error.message.toLowerCase().includes('rate limit')) || (error.message && error.message.toLowerCase().includes('429'))) {
+      return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+    }
     res.status(500).json({ error: error.message });
   }
 });
