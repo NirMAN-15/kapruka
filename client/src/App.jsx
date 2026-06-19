@@ -294,7 +294,7 @@ function parseProductsFromMarkdown(mdText) {
       }
 
       // Also match text-format image lines: "Image: URL", "Thumbnail: URL", etc.
-      const imgTextMatch = line.match(/(?:Image|Thumbnail|Photo|Img|Picture):\s*(https?:\/\/[^\s]+)/i);
+      const imgTextMatch = line.match(/(?:Image|Thumbnail|Photo|Img|Picture)(?:\*\*?)*:\s*(?:\*\*?)*(https?:\/\/[^\s*)]+)/i);
       if (imgTextMatch) {
         currentProduct.image = imgTextMatch[1].trim();
       }

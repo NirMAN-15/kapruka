@@ -95,7 +95,7 @@ function parseProductsFromMarkdown(mdText) {
       }
 
       // Also match text-format image lines: "Image: URL", "Thumbnail: URL", etc.
-      const imgTextMatch = line.match(/(?:Image|Thumbnail|Photo|Img|Picture):\s*(https?:\/\/[^\s]+)/i);
+      const imgTextMatch = line.match(/(?:Image|Thumbnail|Photo|Img|Picture)(?:\*\*?)*:\s*(?:\*\*?)*(https?:\/\/[^\s*)]+)/i);
       if (imgTextMatch) {
         currentProduct.image = imgTextMatch[1].trim();
       }
@@ -155,6 +155,50 @@ function parseProductsFromMarkdown(mdText) {
     }
     return p;
   });
+}
+
+// Enrich products by fetching details (e.g. real image URLs) using kapruka_get_product tool
+async function enrichProductsWithDetails(products) {
+  if (!products || !Array.isArray(products) || products.length === 0) {
+    return products || [];
+  }
+  if (!mcpClient) {
+    console.warn('Cannot enrich products: MCP client not connected');
+    return products;
+  }
+  
+  try {
+    const enriched = await Promise.all(products.map(async (p) => {
+      if (p.product_id) {
+        try {
+          const result = await mcpClient.callTool({
+            name: 'kapruka_get_product',
+            arguments: { params: { product_id: p.product_id } }
+          });
+          const details = formatMcpResponse(result);
+          const textContent = details.text || (typeof details === 'string' ? details : '');
+          const parsedDetails = parseProductsFromMarkdown(textContent);
+          if (parsedDetails && parsedDetails.length > 0) {
+            const detailProduct = parsedDetails[0];
+            return {
+              ...p,
+              image: detailProduct.image && detailProduct.image !== 'https://via.placeholder.com/150' ? detailProduct.image : p.image,
+              price: detailProduct.price || p.price,
+              in_stock: detailProduct.in_stock !== undefined ? detailProduct.in_stock : p.in_stock,
+              url: detailProduct.url || p.url
+            };
+          }
+        } catch (e) {
+          console.error(`Failed to enrich product details for ${p.product_id}:`, e.message);
+        }
+      }
+      return p;
+    }));
+    return enriched;
+  } catch (err) {
+    console.error('Error in enrichProductsWithDetails:', err.message);
+    return products;
+  }
 }
 
 // Connect to the remote Kapruka MCP server
@@ -235,7 +279,15 @@ app.get('/api/search', ensureMcpConnected, async (req, res) => {
       arguments: { params: args }
     });
 
-    res.json(formatMcpResponse(result));
+    const responseData = formatMcpResponse(result);
+    const textContent = responseData.text || (typeof responseData === 'string' ? responseData : '');
+    const parsed = parseProductsFromMarkdown(textContent);
+    const enriched = await enrichProductsWithDetails(parsed);
+
+    res.json({
+      ...responseData,
+      products: enriched
+    });
   } catch (error) {
     console.error('Error in /api/search:', error.message);
     res.status(500).json({ error: error.message });
@@ -416,6 +468,7 @@ Core Instructions:
 7. Assist users with the checkout loop by verifying delivery cities using 'kapruka_list_delivery_cities' and checking rates and date availability using 'kapruka_check_delivery'.
 8. If the user wants to finalize an order, guide them to click 'Proceed to Checkout' in the cart panel. Explain the checkout process, collection of recipient/sender info, and secure payment redirect.
 9. Track orders using 'kapruka_track_order' and show the structured status timeline.
+10. Keep your text responses concise, clean, and simple. Do not duplicate product details (like product IDs, links, or long descriptions) in your text response if the product cards are being displayed, as it makes the chat interface cluttered. Simply highlight the main choices and invite the user to view the cards.
 
 Remember: When calling tools, the parameters will be passed to the Kapruka remote server. The server expects parameters to be wrapped inside a 'params' object, but you should output standard flat parameters; the backend will automatically wrap them inside 'params' before calling the tool.
 Always be polite, warm, and helpful.
@@ -761,6 +814,7 @@ async function handleMockAgent(messages, clientLang) {
       const data = formatMcpResponse(result);
       const textContent = data.text || (typeof data === 'string' ? data : '');
       const products = parseProductsFromMarkdown(textContent);
+      const enriched = await enrichProductsWithDetails(products);
 
       let responseText = '';
       if (language === 'si') {
@@ -772,7 +826,7 @@ async function handleMockAgent(messages, clientLang) {
       }
       return {
         text: responseText,
-        products: products
+        products: enriched
       };
     } catch (e) {
       return { text: `Error searching products: ${e.message}` };
@@ -941,7 +995,8 @@ async function runGeminiAgentLoop(messages, clientLang) {
           if (func.name === 'kapruka_search_products') {
             const textContent = toolResponse.text || (typeof toolResponse === 'string' ? toolResponse : '');
             const parsed = parseProductsFromMarkdown(textContent);
-            accumulatedProducts.push(...parsed);
+            const enriched = await enrichProductsWithDetails(parsed);
+            accumulatedProducts.push(...enriched);
           } else if (func.name === 'kapruka_get_product') {
             if (toolResponse && !toolResponse.isError) {
               const textContent = toolResponse.text || (typeof toolResponse === 'string' ? toolResponse : '');
@@ -1078,7 +1133,8 @@ app.post('/api/chat', async (req, res) => {
             if (toolCall.name === 'kapruka_search_products') {
               const textContent = toolResponse.text || (typeof toolResponse === 'string' ? toolResponse : '');
               const parsed = parseProductsFromMarkdown(textContent);
-              accumulatedProducts.push(...parsed);
+              const enriched = await enrichProductsWithDetails(parsed);
+              accumulatedProducts.push(...enriched);
             } else if (toolCall.name === 'kapruka_get_product') {
               if (toolResponse && !toolResponse.isError) {
                 const textContent = toolResponse.text || (typeof toolResponse === 'string' ? toolResponse : '');
