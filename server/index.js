@@ -255,6 +255,9 @@ function parseProductsFromMarkdown(mdText) {
   });
 }
 
+// Cache for product details to avoid redundant API calls and rate limit exhaustion
+const productDetailsCache = new Map();
+
 // Enrich products by fetching details (e.g. real image URLs) using kapruka_get_product tool
 async function enrichProductsWithDetails(products) {
   if (!products || !Array.isArray(products) || products.length === 0) {
@@ -267,27 +270,45 @@ async function enrichProductsWithDetails(products) {
   
   try {
     const enriched = await Promise.all(products.map(async (p) => {
-      if (p.product_id) {
-        try {
-          const result = await mcpClient.callTool({
-            name: 'kapruka_get_product',
-            arguments: { params: { product_id: p.product_id } }
-          });
-          const details = formatMcpResponse(result);
-          const parsedDetails = extractProductsFromResponse(details);
-          if (parsedDetails && parsedDetails.length > 0) {
-            const detailProduct = parsedDetails[0];
-            return {
-              ...p,
-              image: detailProduct.image && detailProduct.image !== 'https://via.placeholder.com/150' ? detailProduct.image : p.image,
-              price: detailProduct.price || p.price,
-              in_stock: detailProduct.in_stock !== undefined ? detailProduct.in_stock : p.in_stock,
-              url: detailProduct.url || p.url
-            };
-          }
-        } catch (e) {
-          console.error(`Failed to enrich product details for ${p.product_id}:`, e.message);
+      if (!p.product_id) return p;
+
+      // Skip enrichment if we already have a real Kapruka image and URL
+      const hasRealImage = p.image && !p.image.includes('placeholder') && !p.image.includes('images.unsplash.com');
+      const hasRealUrl = p.url && p.url.includes('kapruka.com');
+      if (hasRealImage && hasRealUrl) {
+        return p;
+      }
+
+      // Check cache first
+      if (productDetailsCache.has(p.product_id)) {
+        const cached = productDetailsCache.get(p.product_id);
+        return { ...p, ...cached };
+      }
+      
+      try {
+        const result = await mcpClient.callTool({
+          name: 'kapruka_get_product',
+          arguments: { params: { product_id: p.product_id } }
+        });
+        const details = formatMcpResponse(result);
+        const parsedDetails = extractProductsFromResponse(details);
+        if (parsedDetails && parsedDetails.length > 0) {
+          const detailProduct = parsedDetails[0];
+          const enrichedInfo = {
+            image: detailProduct.image && detailProduct.image !== 'https://via.placeholder.com/150' ? detailProduct.image : p.image,
+            price: detailProduct.price || p.price,
+            in_stock: detailProduct.in_stock !== undefined ? detailProduct.in_stock : p.in_stock,
+            url: detailProduct.url || p.url
+          };
+          // Save to cache
+          productDetailsCache.set(p.product_id, enrichedInfo);
+          return {
+            ...p,
+            ...enrichedInfo
+          };
         }
+      } catch (e) {
+        console.error(`Failed to enrich product details for ${p.product_id}:`, e.message);
       }
       return p;
     }));
