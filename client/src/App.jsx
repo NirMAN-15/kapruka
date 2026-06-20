@@ -19,6 +19,18 @@ import {
   X
 } from 'lucide-react';
 
+const formatDateToYYYYMMDD = (dateStr) => {
+  if (!dateStr || typeof dateStr !== 'string') return dateStr;
+  const match = dateStr.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (match) {
+    const year = match[1];
+    const month = match[2].padStart(2, '0');
+    const day = match[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  return dateStr;
+};
+
 const translations = {
   en: {
     welcomeMessage: 'Ayu Bowan! 🇱🇰 Welcome to Kapruka AI Shopping Assistant. How can I help you choose the perfect gift or product today?\n\n*Suggestions: "Find chocolate cakes under 5000 LKR", "Mata mal pokurak ona", "Track my order #1234"*',
@@ -1012,37 +1024,23 @@ export default function App() {
       quantity: item.quantity
     }));
     
-    const recParts = recipientName.trim().split(/\s+/);
     const recipient = {
-      first_name: recParts[0] || 'Recipient',
-      last_name: recParts.slice(1).join(' ') || 'Name',
-      phone: recipientPhone,
-      email: 'recipient@kapruka.com'
+      name: recipientName.trim(),
+      phone: recipientPhone.trim()
     };
     
     const delivery = {
-      street_address: `${streetAddress} (Type: ${locationType}) ${deliveryInstructions ? `| Instructions: ${deliveryInstructions}` : ''}`,
+      address: streetAddress.trim(),
       city: selectedCity,
-      delivery_date: deliveryDate
+      location_type: locationType || 'house',
+      date: formatDateToYYYYMMDD(deliveryDate),
+      instructions: deliveryInstructions ? deliveryInstructions.trim() : null
     };
     
-    let sender = {};
-    if (sendAnonymously) {
-      sender = {
-        first_name: 'Anonymous',
-        last_name: 'Sender',
-        phone: '0000000000',
-        email: 'anonymous@kapruka.com'
-      };
-    } else {
-      const sndParts = senderName.trim().split(/\s+/);
-      sender = {
-        first_name: sndParts[0] || 'Sender',
-        last_name: sndParts.slice(1).join(' ') || 'Name',
-        phone: senderPhone || '0000000000',
-        email: senderEmail || 'customer@kapruka.com'
-      };
-    }
+    const sender = {
+      name: sendAnonymously ? 'Anonymous' : senderName.trim(),
+      anonymous: sendAnonymously
+    };
     
     const orderBody = {
       cart: cartPayload,
@@ -1725,7 +1723,7 @@ export default function App() {
                         min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })()}
                         max={(() => { const d = new Date(); d.setDate(d.getDate() + 90); return d.toISOString().split('T')[0]; })()}
                         value={deliveryDate}
-                        onChange={e => setDeliveryDate(e.target.value)}
+                        onChange={e => setDeliveryDate(formatDateToYYYYMMDD(e.target.value))}
                         className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
                       />
                     </div>
@@ -1782,15 +1780,17 @@ export default function App() {
                 {checkoutStep === 3 && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-3 bg-slate-950/60 border border-slate-850 rounded-xl">
-                      <div className="text-xs">
+                      <label htmlFor="send-anonymously" className="text-xs cursor-pointer flex-1">
                         <p className="font-bold text-white">{translations[language].sendAnonymously}</p>
                         <p className="text-[10px] text-slate-400">Keep your identity hidden from the recipient</p>
-                      </div>
+                      </label>
                       <input 
                         type="checkbox" 
+                        id="send-anonymously"
                         checked={sendAnonymously}
                         onChange={e => setSendAnonymously(e.target.checked)}
                         className="w-4 h-4 accent-kapruka-yellow"
+                        title="Send Anonymously"
                       />
                     </div>
 

@@ -15,12 +15,9 @@ async function main() {
     await client.connect(transport);
     console.log("Connected successfully!");
 
-    console.log("Calling kapruka_search_products for 'Cake'...");
-    const result = await client.callTool({
-      name: "kapruka_search_products",
-      arguments: { params: { q: "Cake", limit: 4 } }
-    });
-    console.log("Raw Response:", JSON.stringify(result, null, 2));
+    console.log("Listing tools...");
+    const tools = await client.listTools();
+    console.log("TOOLS SCHEMA:", JSON.stringify(tools, null, 2));
 
   } catch (error) {
     console.error("Error connecting to MCP:", error);

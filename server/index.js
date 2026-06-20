@@ -17,6 +17,91 @@ const KAPRUKA_MCP_URL = process.env.KAPRUKA_MCP_URL || 'https://mcp.kapruka.com/
 let mcpClient = null;
 let isConnecting = false;
 
+// Date formatting helper to ensure YYYY-MM-DD
+function formatToYYYYMMDD(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return dateStr;
+  const match = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (match) {
+    const year = match[1];
+    const month = match[2].padStart(2, '0');
+    const day = match[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  } catch (e) {}
+  return dateStr;
+}
+
+// Normalize order creation payload to match exact MCP schema
+function normalizeOrderPayload(payload) {
+  if (!payload || typeof payload !== 'object') return payload;
+  const result = JSON.parse(JSON.stringify(payload));
+  
+  if (result.recipient) {
+    const r = result.recipient;
+    if (!r.name && (r.first_name || r.last_name)) {
+      r.name = [r.first_name, r.last_name].filter(Boolean).join(' ').trim();
+    }
+    delete r.first_name;
+    delete r.last_name;
+    delete r.email;
+  }
+  
+  if (result.delivery) {
+    const d = result.delivery;
+    if (!d.address && d.street_address) {
+      d.address = d.street_address;
+    }
+    if (!d.date && d.delivery_date) {
+      d.date = d.delivery_date;
+    }
+    if (d.date) {
+      d.date = formatToYYYYMMDD(d.date);
+    }
+    delete d.street_address;
+    delete d.delivery_date;
+    if (!d.location_type) {
+      d.location_type = 'house';
+    }
+  }
+  
+  if (result.sender) {
+    const s = result.sender;
+    if (!s.name && (s.first_name || s.last_name)) {
+      s.name = [s.first_name, s.last_name].filter(Boolean).join(' ').trim();
+    }
+    if (s.anonymous === undefined) {
+      s.anonymous = false;
+    }
+    delete s.first_name;
+    delete s.last_name;
+    delete s.phone;
+    delete s.email;
+  }
+
+  if (Array.isArray(result.cart)) {
+    result.cart = result.cart.map(item => {
+      const newItem = {
+        product_id: item.product_id || item.id,
+        quantity: typeof item.quantity === 'number' ? item.quantity : parseInt(item.quantity) || 1
+      };
+      if (item.icing_text) {
+        newItem.icing_text = item.icing_text;
+      }
+      return newItem;
+    });
+  }
+  
+  return result;
+}
+
 // Format MCP tool output helper
 function formatMcpResponse(result) {
   if (result.isError) {
@@ -37,6 +122,19 @@ function formatMcpResponse(result) {
   }
   
   return result;
+}
+
+// Extract and parse products from any MCP response structure
+function extractProductsFromResponse(responseData) {
+  if (!responseData) return [];
+  if (Array.isArray(responseData.products)) {
+    return responseData.products;
+  }
+  if (Array.isArray(responseData)) {
+    return responseData;
+  }
+  const textContent = responseData.result || responseData.text || (typeof responseData === 'string' ? responseData : '');
+  return parseProductsFromMarkdown(textContent);
 }
 
 // Parser for products from markdown text (copied from client)
@@ -176,8 +274,7 @@ async function enrichProductsWithDetails(products) {
             arguments: { params: { product_id: p.product_id } }
           });
           const details = formatMcpResponse(result);
-          const textContent = details.text || (typeof details === 'string' ? details : '');
-          const parsedDetails = parseProductsFromMarkdown(textContent);
+          const parsedDetails = extractProductsFromResponse(details);
           if (parsedDetails && parsedDetails.length > 0) {
             const detailProduct = parsedDetails[0];
             return {
@@ -280,8 +377,7 @@ app.get('/api/search', ensureMcpConnected, async (req, res) => {
     });
 
     const responseData = formatMcpResponse(result);
-    const textContent = responseData.text || (typeof responseData === 'string' ? responseData : '');
-    const parsed = parseProductsFromMarkdown(textContent);
+    const parsed = extractProductsFromResponse(responseData);
     const enriched = await enrichProductsWithDetails(parsed);
 
     res.json({
@@ -370,7 +466,7 @@ app.get('/api/delivery', ensureMcpConnected, async (req, res) => {
     
     const args = {
       city: String(city),
-      delivery_date: String(delivery_date)
+      delivery_date: formatToYYYYMMDD(String(delivery_date))
     };
     if (product_id) args.product_id = String(product_id);
 
@@ -390,7 +486,8 @@ app.get('/api/delivery', ensureMcpConnected, async (req, res) => {
 // 5. Create checkout order
 app.post('/api/order', ensureMcpConnected, async (req, res) => {
   try {
-    const { cart, recipient, delivery, sender, gift_message, currency } = req.body;
+    const normalizedBody = normalizeOrderPayload(req.body);
+    const { cart, recipient, delivery, sender, gift_message, currency } = normalizedBody;
     
     if (!cart || !recipient || !delivery || !sender) {
       return res.status(400).json({ 
@@ -476,7 +573,7 @@ Always be polite, warm, and helpful.
 CRITICAL INSTRUCTION FOR LANGUAGE SYNC:
 You MUST accurately detect the language and script of the user's most recent message.
 If the user writes in Sinhala script (සිංහල), your ENTIRE response MUST be in Sinhala script. DO NOT reply in English or Tanglish to a Sinhala script query.
-If the user writes in Tanglish, reply in Tanglish.
+If the user writes in Tanglish (Sinhala words written using the English/Latin alphabet, containing words like 'mata', 'ona', 'ekak', 'thiyenawa', 'puluwan', 'oya', 'denna'), your ENTIRE response MUST be in Tanglish. DO NOT reply in standard English.
 If the user writes in English, reply in English.`;
 
 const CLAUDE_TOOLS = [
@@ -546,54 +643,52 @@ const CLAUDE_TOOLS = [
   },
   {
     name: "kapruka_create_order",
-    description: "Create a guest checkout order on Kapruka and get a pay link.",
+    description: "Create a guest-checkout order on Kapruka and return a click-to-pay link.",
     input_schema: {
       type: "object",
       properties: {
         cart: {
           type: "array",
-          description: "List of items in the cart.",
+          description: "1-30 items.",
           items: {
             type: "object",
             properties: {
-              product_id: { type: "string", description: "Product identifier." },
-              quantity: { type: "integer", description: "Item quantity." },
-              variant_id: { type: "string", description: "Optional variant identifier." }
+              product_id: { type: "string", description: "Kapruka product ID (e.g. 'cake00ka002034')." },
+              quantity: { type: "integer", description: "Quantity (1–99)." },
+              icing_text: { type: "string", description: "Cake icing text. Silently ignored for non-cake products." }
             },
-            required: ["product_id", "quantity"]
+            required: ["product_id"]
           }
         },
         recipient: {
           type: "object",
           description: "Recipient's contact details.",
           properties: {
-            first_name: { type: "string" },
-            last_name: { type: "string" },
-            phone: { type: "string" },
-            email: { type: "string" }
+            name: { type: "string", description: "Recipient name shown on the order." },
+            phone: { type: "string", description: "Recipient phone — E.164 (+9477…) or local SL (077…) format." }
           },
-          required: ["first_name", "last_name", "phone"]
+          required: ["name", "phone"]
         },
         delivery: {
           type: "object",
           description: "Delivery address details.",
           properties: {
-            street_address: { type: "string" },
+            address: { type: "string", description: "Street address." },
             city: { type: "string", description: "Canonical city name." },
-            delivery_date: { type: "string", description: "Date in YYYY-MM-DD." }
+            location_type: { type: "string", description: "One of: house, apartment, office, other." },
+            date: { type: "string", description: "Delivery date in YYYY-MM-DD (Asia/Colombo). Must be today or future." },
+            instructions: { type: "string", description: "Free-form delivery instructions." }
           },
-          required: ["street_address", "city", "delivery_date"]
+          required: ["address", "city", "date"]
         },
         sender: {
           type: "object",
           description: "Sender's billing contact details.",
           properties: {
-            first_name: { type: "string" },
-            last_name: { type: "string" },
-            phone: { type: "string" },
-            email: { type: "string" }
+            name: { type: "string", description: "Sender name on the gift card." },
+            anonymous: { type: "boolean", description: "If true, gift card shows 'Anonymous' instead of the sender name." }
           },
-          required: ["first_name", "last_name", "phone", "email"]
+          required: ["name"]
         },
         gift_message: { type: "string", description: "Optional personalized text message for greeting card." },
         currency: { type: "string", description: "Price currency (default: 'LKR')." }
@@ -812,8 +907,7 @@ async function handleMockAgent(messages, clientLang) {
         arguments: { params: { q: keyword, limit: 4 } }
       });
       const data = formatMcpResponse(result);
-      const textContent = data.text || (typeof data === 'string' ? data : '');
-      const products = parseProductsFromMarkdown(textContent);
+      const products = extractProductsFromResponse(data);
       const enriched = await enrichProductsWithDetails(products);
 
       let responseText = '';
@@ -973,8 +1067,10 @@ async function runGeminiAgentLoop(messages, clientLang) {
     }
 
     const functionResponseParts = [];
-    for (const call of functionCalls) {
-      const func = call.functionCall;
+    for (const part of parts) {
+      if (!part.functionCall) continue;
+      
+      const func = part.functionCall;
       console.log(`Gemini calling tool: ${func.name} with arguments:`, func.args);
 
       let toolResponse;
@@ -982,10 +1078,26 @@ async function runGeminiAgentLoop(messages, clientLang) {
         toolResponse = { error: "Kapruka MCP client is offline." };
       } else {
         try {
-          let toolArgs = func.args;
+          let toolArgs = JSON.parse(JSON.stringify(func.args || {}));
+          let targetArgs = toolArgs.params ? toolArgs.params : toolArgs;
+          
+          if (func.name === 'kapruka_check_delivery') {
+            if (targetArgs.delivery_date) {
+              targetArgs.delivery_date = formatToYYYYMMDD(targetArgs.delivery_date);
+            }
+          } else if (func.name === 'kapruka_create_order') {
+            const normalized = normalizeOrderPayload(targetArgs);
+            if (toolArgs.params) {
+              toolArgs.params = normalized;
+            } else {
+              toolArgs = normalized;
+            }
+          }
+          
           if (!toolArgs.params) {
             toolArgs = { params: toolArgs };
           }
+          
           const rawResult = await mcpClient.callTool({
             name: func.name,
             arguments: toolArgs
@@ -993,14 +1105,12 @@ async function runGeminiAgentLoop(messages, clientLang) {
           toolResponse = formatMcpResponse(rawResult);
 
           if (func.name === 'kapruka_search_products') {
-            const textContent = toolResponse.text || (typeof toolResponse === 'string' ? toolResponse : '');
-            const parsed = parseProductsFromMarkdown(textContent);
+            const parsed = extractProductsFromResponse(toolResponse);
             const enriched = await enrichProductsWithDetails(parsed);
             accumulatedProducts.push(...enriched);
           } else if (func.name === 'kapruka_get_product') {
             if (toolResponse && !toolResponse.isError) {
-              const textContent = toolResponse.text || (typeof toolResponse === 'string' ? toolResponse : '');
-              const parsed = parseProductsFromMarkdown(textContent);
+              const parsed = extractProductsFromResponse(toolResponse);
               accumulatedProducts.push(...parsed);
             }
           }
@@ -1010,13 +1120,23 @@ async function runGeminiAgentLoop(messages, clientLang) {
         }
       }
 
-      functionResponseParts.push({
+      const responsePart = {
         functionResponse: {
           name: func.name,
-          id: call.functionCall.id,
           response: { result: JSON.stringify(toolResponse) }
         }
-      });
+      };
+      
+      if (func.id) {
+        responsePart.functionResponse.id = func.id;
+      }
+      
+      const thoughtSig = part.thought_signature || part.thoughtSignature;
+      if (thoughtSig) {
+        responsePart.thought_signature = thoughtSig;
+      }
+      
+      functionResponseParts.push(responsePart);
     }
 
     contents.push({
@@ -1116,8 +1236,22 @@ app.post('/api/chat', async (req, res) => {
           toolResponse = { isError: true, content: [{ text: "Kapruka MCP client is currently offline." }] };
         } else {
           try {
-            // Normalise tool arguments: wrap in 'params' if not already wrapped
-            let toolArgs = toolCall.input;
+            let toolArgs = JSON.parse(JSON.stringify(toolCall.input || {}));
+            let targetArgs = toolArgs.params ? toolArgs.params : toolArgs;
+            
+            if (toolCall.name === 'kapruka_check_delivery') {
+              if (targetArgs.delivery_date) {
+                targetArgs.delivery_date = formatToYYYYMMDD(targetArgs.delivery_date);
+              }
+            } else if (toolCall.name === 'kapruka_create_order') {
+              const normalized = normalizeOrderPayload(targetArgs);
+              if (toolArgs.params) {
+                toolArgs.params = normalized;
+              } else {
+                toolArgs = normalized;
+              }
+            }
+            
             if (!toolArgs.params) {
               toolArgs = { params: toolArgs };
             }
@@ -1131,14 +1265,12 @@ app.post('/api/chat', async (req, res) => {
 
             // Accumulate search results to display visual cards in the frontend
             if (toolCall.name === 'kapruka_search_products') {
-              const textContent = toolResponse.text || (typeof toolResponse === 'string' ? toolResponse : '');
-              const parsed = parseProductsFromMarkdown(textContent);
+              const parsed = extractProductsFromResponse(toolResponse);
               const enriched = await enrichProductsWithDetails(parsed);
               accumulatedProducts.push(...enriched);
             } else if (toolCall.name === 'kapruka_get_product') {
               if (toolResponse && !toolResponse.isError) {
-                const textContent = toolResponse.text || (typeof toolResponse === 'string' ? toolResponse : '');
-                const parsed = parseProductsFromMarkdown(textContent);
+                const parsed = extractProductsFromResponse(toolResponse);
                 accumulatedProducts.push(...parsed);
               }
             }
