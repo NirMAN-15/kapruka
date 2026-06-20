@@ -984,11 +984,17 @@ function convertToolsToGemini(claudeTools) {
   });
 }
 
+// Helper to retrieve all configured Gemini API keys from environment
+function getGeminiApiKeys() {
+  const envKeys = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
+  return envKeys.split(',').map(k => k.trim()).filter(Boolean);
+}
+
 // Run the Gemini agent loop using native global fetch
 async function runGeminiAgentLoop(messages, clientLang) {
-  const geminiApiKey = process.env.GEMINI_API_KEY;
-  if (!geminiApiKey) {
-    throw new Error("GEMINI_API_KEY is not defined in the environment.");
+  const apiKeys = getGeminiApiKeys();
+  if (apiKeys.length === 0) {
+    throw new Error("No Gemini API keys defined in the environment.");
   }
 
   // Format messages for Gemini
@@ -1034,35 +1040,47 @@ async function runGeminiAgentLoop(messages, clientLang) {
 
     while (!success && modelIndex < fallbackModels.length) {
       activeModel = fallbackModels[modelIndex];
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${geminiApiKey}`;
-      try {
-        console.log(`Trying Gemini model: ${activeModel}...`);
-        const requestBody = {
-          contents,
-          systemInstruction,
-          tools: geminiTools
-        };
+      
+      let keyIndex = 0;
+      let lastError = null;
+      
+      while (!success && keyIndex < apiKeys.length) {
+        const apiKey = apiKeys[keyIndex];
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`;
+        
+        try {
+          console.log(`Trying Gemini model ${activeModel} with API key index ${keyIndex}...`);
+          const requestBody = {
+            contents,
+            systemInstruction,
+            tools: geminiTools
+          };
 
-        // Removed thinkingConfig to prevent thought_signature API errors with standard models
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+          });
 
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody)
-        });
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`Status ${res.status}: ${errText}`);
+          }
 
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(`Status ${res.status}: ${errText}`);
+          responseData = await res.json();
+          success = true;
+        } catch (err) {
+          console.warn(`Gemini model ${activeModel} with key index ${keyIndex} failed: ${err.message}`);
+          lastError = err;
+          keyIndex++;
         }
-
-        responseData = await res.json();
-        success = true;
-      } catch (err) {
-        console.warn(`Gemini model ${activeModel} failed: ${err.message}. Trying next fallback...`);
+      }
+      
+      if (!success) {
+        console.warn(`All API keys failed for model ${activeModel}. Trying next fallback model...`);
         modelIndex++;
         if (modelIndex >= fallbackModels.length) {
-          throw new Error(`All Gemini models failed. Last error: ${err.message}`);
+          throw new Error(`All Gemini models and API keys failed. Last error: ${lastError ? lastError.message : 'Unknown'}`);
         }
       }
     }
@@ -1177,10 +1195,10 @@ app.post('/api/chat', async (req, res) => {
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    const geminiApiKey = process.env.GEMINI_API_KEY;
+    const geminiKeys = (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
 
-    if (geminiApiKey) {
-      console.log('GEMINI_API_KEY is defined. Using Gemini 1.5 Flash agent loop...');
+    if (geminiKeys.length > 0) {
+      console.log('Gemini API keys are defined. Using Gemini agent loop...');
       const response = await runGeminiAgentLoop(messages, clientLang);
       return res.json(response);
     }
