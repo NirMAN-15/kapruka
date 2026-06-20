@@ -1298,16 +1298,6 @@ export default function App() {
             >
               සිංහල
             </button>
-            <button
-              onClick={() => setLanguage('tanglish')}
-              className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all duration-150 ${
-                language === 'tanglish'
-                  ? 'bg-kapruka-purple text-kapruka-yellow shadow-md shadow-kapruka-purple/30 border border-kapruka-purple-light/20'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Tanglish
-            </button>
           </div>
         </div>
         
