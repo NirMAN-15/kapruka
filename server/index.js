@@ -990,13 +990,8 @@ function getGeminiApiKeys() {
   return envKeys.split(',').map(k => k.trim()).filter(Boolean);
 }
 
-// Run the Gemini agent loop using native global fetch
-async function runGeminiAgentLoop(messages, clientLang) {
-  const apiKeys = getGeminiApiKeys();
-  if (apiKeys.length === 0) {
-    throw new Error("No Gemini API keys defined in the environment.");
-  }
-
+// Run a Gemini agent loop using a single API key and fallback models list
+async function runGeminiAgentWithSingleKey(messages, clientLang, apiKey, models) {
   // Format messages for Gemini
   const contents = messages
     .filter(m => (m.sender === 'user' || m.sender === 'agent' || m.role === 'user' || m.role === 'assistant') && (m.text || m.content))
@@ -1027,16 +1022,6 @@ async function runGeminiAgentLoop(messages, clientLang) {
   let iteration = 0;
   let accumulatedProducts = [];
 
-  const fallbackModels = [
-    'gemini-3.5-flash',
-    'gemini-3.1-pro-preview',
-    'gemini-3.1-flash-lite',
-    'gemini-2.5-flash',
-    'gemini-2.5-pro',
-    'gemini-2.5-flash-lite',
-    'gemini-flash-latest',
-    'gemini-pro-latest'
-  ];
   let modelIndex = 0;
 
   while (iteration < maxIterations) {
@@ -1046,52 +1031,42 @@ async function runGeminiAgentLoop(messages, clientLang) {
     let success = false;
     let responseData;
     let activeModel = '';
+    let lastError = null;
 
-    while (!success && modelIndex < fallbackModels.length) {
-      activeModel = fallbackModels[modelIndex];
+    while (!success && modelIndex < models.length) {
+      activeModel = models[modelIndex];
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`;
       
-      let keyIndex = 0;
-      let lastError = null;
-      
-      while (!success && keyIndex < apiKeys.length) {
-        const apiKey = apiKeys[keyIndex];
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`;
-        
-        try {
-          console.log(`Trying Gemini model ${activeModel} with API key index ${keyIndex}...`);
-          const requestBody = {
-            contents,
-            systemInstruction,
-            tools: geminiTools
-          };
+      try {
+        console.log(`Trying Gemini model ${activeModel}...`);
+        const requestBody = {
+          contents,
+          systemInstruction,
+          tools: geminiTools
+        };
 
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-          });
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
 
-          if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`Status ${res.status}: ${errText}`);
-          }
-
-          responseData = await res.json();
-          success = true;
-        } catch (err) {
-          console.warn(`Gemini model ${activeModel} with key index ${keyIndex} failed: ${err.message}`);
-          lastError = err;
-          keyIndex++;
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Status ${res.status}: ${errText}`);
         }
-      }
-      
-      if (!success) {
-        console.warn(`All API keys failed for model ${activeModel}. Trying next fallback model...`);
+
+        responseData = await res.json();
+        success = true;
+      } catch (err) {
+        console.warn(`Gemini model ${activeModel} failed: ${err.message}`);
+        lastError = err;
         modelIndex++;
-        if (modelIndex >= fallbackModels.length) {
-          throw new Error(`All Gemini models and API keys failed. Last error: ${lastError ? lastError.message : 'Unknown'}`);
-        }
       }
+    }
+
+    if (!success) {
+      throw new Error(`All Gemini models failed. Last error: ${lastError ? lastError.message : 'Unknown'}`);
     }
 
     if (!responseData.candidates || responseData.candidates.length === 0) {
@@ -1196,6 +1171,337 @@ async function runGeminiAgentLoop(messages, clientLang) {
   throw new Error("Gemini agent loop exceeded maximum iterations.");
 }
 
+// Convert Claude tools to OpenAI tools format
+function convertToolsToOpenAI(claudeTools) {
+  return claudeTools.map(t => ({
+    type: "function",
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.input_schema
+    }
+  }));
+}
+
+// Run an OpenAI-compatible agent loop (Groq, Kimi, GLM) with tool calling & failover
+async function runOpenAiCompatibleAgentLoop(messages, clientLang, providerType, apiKey, models) {
+  const urlMap = {
+    groq: 'https://api.groq.com/openai/v1/chat/completions',
+    kimi: 'https://api.moonshot.cn/v1/chat/completions',
+    glm: 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+  };
+
+  const url = urlMap[providerType];
+  if (!url) throw new Error(`Unknown provider type: ${providerType}`);
+
+  let apiMessages = [];
+  
+  // Add system message first
+  let dynamicSystemPrompt = SYSTEM_PROMPT;
+  if (clientLang) {
+    const langNames = { en: 'English', si: 'Sinhala script', tanglish: 'Tanglish (Sinhala language written using the English/Latin alphabet)' };
+    dynamicSystemPrompt += `\n\n[System Override: The user's active UI interface language is set to ${langNames[clientLang] || clientLang}, but ALWAYS reply in the exact language the user writes in (e.g., if they ask in Sinhala, reply in Sinhala; if in English, reply in English).]`;
+  }
+  apiMessages.push({ role: 'system', content: dynamicSystemPrompt });
+
+  // Map messages history
+  messages
+    .filter(m => (m.sender === 'user' || m.sender === 'agent' || m.role === 'user' || m.role === 'assistant') && (m.text || m.content))
+    .forEach(m => {
+      const role = (m.sender === 'agent' || m.role === 'assistant') ? 'assistant' : 'user';
+      const content = m.text || m.content;
+      apiMessages.push({ role, content });
+    });
+
+  const openAiTools = convertToolsToOpenAI(CLAUDE_TOOLS);
+
+  let maxIterations = 5;
+  let iteration = 0;
+  let accumulatedProducts = [];
+
+  let modelIndex = 0;
+  let activeModel = models[0];
+
+  while (iteration < maxIterations) {
+    iteration++;
+    console.log(`[${providerType.toUpperCase()}] Agent Loop Iteration ${iteration}`);
+
+    let success = false;
+    let responseData;
+    let lastError = null;
+
+    while (!success && modelIndex < models.length) {
+      activeModel = models[modelIndex];
+      try {
+        console.log(`[${providerType.toUpperCase()}] Trying model ${activeModel}...`);
+        const requestBody = {
+          model: activeModel,
+          messages: apiMessages,
+          tools: openAiTools,
+          tool_choice: 'auto'
+        };
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Status ${res.status}: ${errText}`);
+        }
+
+        responseData = await res.json();
+        success = true;
+      } catch (err) {
+        console.warn(`[${providerType.toUpperCase()}] Model ${activeModel} failed: ${err.message}`);
+        lastError = err;
+        modelIndex++;
+      }
+    }
+
+    if (!success) {
+      throw new Error(`All ${providerType.toUpperCase()} models failed. Last error: ${lastError ? lastError.message : 'Unknown'}`);
+    }
+
+    const choice = responseData.choices[0];
+    const message = choice.message;
+    
+    // Push the assistant message to apiMessages history
+    apiMessages.push(message);
+
+    const toolCalls = message.tool_calls || [];
+
+    if (toolCalls.length === 0) {
+      return {
+        text: message.content || '',
+        products: accumulatedProducts
+      };
+    }
+
+    // Process tool calls
+    for (const toolCall of toolCalls) {
+      const func = toolCall.function;
+      console.log(`[${providerType.toUpperCase()}] calling tool: ${func.name} with arguments:`, func.arguments);
+
+      let toolResponse;
+      if (!mcpClient) {
+        toolResponse = { error: "Kapruka MCP client is offline." };
+      } else {
+        try {
+          let toolArgs = JSON.parse(func.arguments || '{}');
+          let targetArgs = toolArgs.params ? toolArgs.params : toolArgs;
+          
+          if (func.name === 'kapruka_check_delivery') {
+            if (targetArgs.delivery_date) {
+              targetArgs.delivery_date = formatToYYYYMMDD(targetArgs.delivery_date);
+            }
+          } else if (func.name === 'kapruka_create_order') {
+            const normalized = normalizeOrderPayload(targetArgs);
+            if (toolArgs.params) {
+              toolArgs.params = normalized;
+            } else {
+              toolArgs = normalized;
+            }
+          }
+          
+          if (!toolArgs.params) {
+            toolArgs = { params: toolArgs };
+          }
+          
+          const rawResult = await mcpClient.callTool({
+            name: func.name,
+            arguments: toolArgs
+          });
+          toolResponse = formatMcpResponse(rawResult);
+
+          if (func.name === 'kapruka_search_products') {
+            const parsed = extractProductsFromResponse(toolResponse);
+            const enriched = await enrichProductsWithDetails(parsed);
+            accumulatedProducts.push(...enriched);
+          } else if (func.name === 'kapruka_get_product') {
+            if (toolResponse && !toolResponse.isError) {
+              const parsed = extractProductsFromResponse(toolResponse);
+              accumulatedProducts.push(...parsed);
+            }
+          }
+        } catch (e) {
+          console.error(`Error in ${providerType.toUpperCase()} tool execution for ${func.name}:`, e.message);
+          toolResponse = { error: e.message };
+        }
+      }
+
+      // Push tool response message
+      apiMessages.push({
+        role: 'tool',
+        tool_call_id: toolCall.id,
+        name: func.name,
+        content: JSON.stringify(toolResponse)
+      });
+    }
+  }
+
+  throw new Error(`[${providerType.toUpperCase()}] Agent loop exceeded maximum iterations.`);
+}
+
+// Run Claude agent loop using Anthropic SDK
+async function runClaudeAgent(messages, clientLang, apiKey, model) {
+  const anthropic = new Anthropic({ apiKey });
+
+  // Format messages for Claude
+  const formattedMessages = messages
+    .filter(m => (m.sender === 'user' || m.sender === 'agent' || m.role === 'user' || m.role === 'assistant') && (m.text || m.content))
+    .map(m => {
+      const role = (m.sender === 'agent' || m.role === 'assistant') ? 'assistant' : 'user';
+      const content = m.text || m.content;
+      return { role, content };
+    });
+
+  let currentMessages = [...formattedMessages];
+  let maxIterations = 5;
+  let iteration = 0;
+  let accumulatedProducts = [];
+
+  let dynamicSystemPrompt = SYSTEM_PROMPT;
+  if (clientLang) {
+    const langNames = { en: 'English', si: 'Sinhala script', tanglish: 'Tanglish (Sinhala language written using the English/Latin alphabet)' };
+    dynamicSystemPrompt += `\n\n[System Override: The user's active UI interface language is set to ${langNames[clientLang] || clientLang}, but ALWAYS reply in the exact language the user writes in (e.g., if they ask in Sinhala, reply in Sinhala; if in English, reply in English).]`;
+  }
+
+  while (iteration < maxIterations) {
+    iteration++;
+    console.log(`Claude Agent Loop Iteration ${iteration}`);
+
+    const response = await anthropic.messages.create({
+      model: model || 'claude-3-5-sonnet-20241022',
+      max_tokens: 4000,
+      system: dynamicSystemPrompt,
+      messages: currentMessages,
+      tools: CLAUDE_TOOLS
+    });
+
+    const assistantMessage = {
+      role: 'assistant',
+      content: response.content
+    };
+    currentMessages.push(assistantMessage);
+
+    const toolCalls = response.content.filter(block => block.type === 'tool_use');
+
+    if (toolCalls.length === 0) {
+      const textContentBlock = response.content.find(block => block.type === 'text');
+      const text = textContentBlock ? textContentBlock.text : '';
+      return {
+        text,
+        products: accumulatedProducts
+      };
+    }
+
+    const toolResults = [];
+    for (const toolCall of toolCalls) {
+      console.log(`Executing tool: ${toolCall.name} with input:`, toolCall.input);
+      
+      let toolResponse;
+      if (!mcpClient) {
+        toolResponse = { isError: true, content: [{ text: "Kapruka MCP client is currently offline." }] };
+      } else {
+        try {
+          let toolArgs = JSON.parse(JSON.stringify(toolCall.input || {}));
+          let targetArgs = toolArgs.params ? toolArgs.params : toolArgs;
+          
+          if (toolCall.name === 'kapruka_check_delivery') {
+            if (targetArgs.delivery_date) {
+              targetArgs.delivery_date = formatToYYYYMMDD(targetArgs.delivery_date);
+            }
+          } else if (toolCall.name === 'kapruka_create_order') {
+            const normalized = normalizeOrderPayload(targetArgs);
+            if (toolArgs.params) {
+              toolArgs.params = normalized;
+            } else {
+              toolArgs = normalized;
+            }
+          }
+          
+          if (!toolArgs.params) {
+            toolArgs = { params: toolArgs };
+          }
+          
+          const rawResult = await mcpClient.callTool({
+            name: toolCall.name,
+            arguments: toolArgs
+          });
+          
+          toolResponse = formatMcpResponse(rawResult);
+
+          if (toolCall.name === 'kapruka_search_products') {
+            const parsed = extractProductsFromResponse(toolResponse);
+            const enriched = await enrichProductsWithDetails(parsed);
+            accumulatedProducts.push(...enriched);
+          } else if (toolCall.name === 'kapruka_get_product') {
+            if (toolResponse && !toolResponse.isError) {
+              const parsed = extractProductsFromResponse(toolResponse);
+              accumulatedProducts.push(...parsed);
+            }
+          }
+        } catch (e) {
+          console.error(`Error executing tool ${toolCall.name}:`, e.message);
+          toolResponse = { error: e.message };
+        }
+      }
+
+      toolResults.push({
+        type: 'tool_result',
+        tool_use_id: toolCall.id,
+        content: JSON.stringify(toolResponse)
+      });
+    }
+
+    currentMessages.push({
+      role: 'user',
+      content: toolResults
+    });
+  }
+
+  throw new Error("Claude agent loop exceeded maximum iterations.");
+}
+
+// Default fallback models for each provider
+const PROVIDER_MODELS = {
+  gemini: [
+    'gemini-3.5-flash',
+    'gemini-3.1-pro-preview',
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+    'gemini-2.5-flash-lite',
+    'gemini-flash-latest',
+    'gemini-pro-latest'
+  ],
+  groq: [
+    'llama-3.3-70b-versatile',
+    'mixtral-8x7b-32768',
+    'llama-3.1-8b-instant',
+    'gemma2-9b-it'
+  ],
+  kimi: [
+    'moonshot-v1-8k',
+    'moonshot-v1-32k'
+  ],
+  glm: [
+    'glm-4-air',
+    'glm-4-flash',
+    'glm-4'
+  ],
+  anthropic: [
+    'claude-3-5-sonnet-20241022',
+    'claude-3-5-haiku-20241022'
+  ]
+};
+
 app.post('/api/chat', async (req, res) => {
   try {
     const { messages, language: clientLang } = req.body;
@@ -1203,157 +1509,102 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: "Invalid request body: 'messages' array is required." });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    // Build the prioritized list of configured providers dynamically from environment
+    const configuredProviders = [];
+
+    // 1. Gemini keys
     const geminiKeys = (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
-
-    if (geminiKeys.length > 0) {
-      console.log('Gemini API keys are defined. Using Gemini agent loop...');
-      const response = await runGeminiAgentLoop(messages, clientLang);
-      return res.json(response);
-    }
-
-    if (!apiKey) {
-      console.log('No ANTHROPIC_API_KEY or GEMINI_API_KEY found, falling back to local Mock Agent');
-      const response = await handleMockAgent(messages, clientLang);
-      return res.json(response);
-    }
-
-    console.log('Initializing Anthropic SDK client...');
-    const anthropic = new Anthropic({ apiKey });
-
-    // Format messages for Claude
-    const formattedMessages = messages
-      .filter(m => (m.sender === 'user' || m.sender === 'agent' || m.role === 'user' || m.role === 'assistant') && (m.text || m.content))
-      .map(m => {
-        const role = (m.sender === 'agent' || m.role === 'assistant') ? 'assistant' : 'user';
-        const content = m.text || m.content;
-        return { role, content };
+    geminiKeys.forEach((key, index) => {
+      configuredProviders.push({
+        type: 'gemini',
+        key,
+        name: `Gemini Key #${index + 1}`,
+        models: PROVIDER_MODELS.gemini
       });
+    });
 
-    // Run the agent loop
-    let currentMessages = [...formattedMessages];
-    let maxIterations = 5;
-    let iteration = 0;
-    let accumulatedProducts = [];
+    // 2. Groq keys
+    const groqKeys = (process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
+    groqKeys.forEach((key, index) => {
+      configuredProviders.push({
+        type: 'groq',
+        key,
+        name: `Groq Key #${index + 1}`,
+        models: PROVIDER_MODELS.groq
+      });
+    });
 
-    let dynamicSystemPrompt = SYSTEM_PROMPT;
-    if (clientLang) {
-      const langNames = { en: 'English', si: 'Sinhala script', tanglish: 'Tanglish (Sinhala language written using the English/Latin alphabet)' };
-      dynamicSystemPrompt += `\n\n[System Override: The user's active UI interface language is set to ${langNames[clientLang] || clientLang}, but ALWAYS reply in the exact language the user writes in (e.g., if they ask in Sinhala, reply in Sinhala; if in English, reply in English).]`;
+    // 3. Kimi keys (Moonshot)
+    const kimiKeys = (process.env.KIMI_API_KEYS || process.env.KIMI_API_KEY || process.env.MOONSHOT_API_KEYS || process.env.MOONSHOT_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
+    kimiKeys.forEach((key, index) => {
+      configuredProviders.push({
+        type: 'kimi',
+        key,
+        name: `Kimi Key #${index + 1}`,
+        models: PROVIDER_MODELS.kimi
+      });
+    });
+
+    // 4. GLM keys (Zhipu)
+    const glmKeys = (process.env.GLM_API_KEYS || process.env.GLM_API_KEY || process.env.ZHIPU_API_KEYS || process.env.ZHIPU_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
+    glmKeys.forEach((key, index) => {
+      configuredProviders.push({
+        type: 'glm',
+        key,
+        name: `GLM Key #${index + 1}`,
+        models: PROVIDER_MODELS.glm
+      });
+    });
+
+    // 5. Anthropic key
+    if (process.env.ANTHROPIC_API_KEY) {
+      configuredProviders.push({
+        type: 'anthropic',
+        key: process.env.ANTHROPIC_API_KEY,
+        name: 'Anthropic Key',
+        models: PROVIDER_MODELS.anthropic
+      });
     }
 
-    while (iteration < maxIterations) {
-      iteration++;
-      console.log(`Agent Loop Iteration ${iteration}`);
+    let response = null;
+    let success = false;
+    let lastError = null;
 
-      const response = await anthropic.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 4000,
-        system: dynamicSystemPrompt,
-        messages: currentMessages,
-        tools: CLAUDE_TOOLS
-      });
-
-      // Add Claude's response to messages
-      const assistantMessage = {
-        role: 'assistant',
-        content: response.content
-      };
-      currentMessages.push(assistantMessage);
-
-      // Check if Claude wants to call tools
-      const toolCalls = response.content.filter(block => block.type === 'tool_use');
-
-      if (toolCalls.length === 0) {
-        // Claude did not call any tools, so we are done
-        const textContentBlock = response.content.find(block => block.type === 'text');
-        const text = textContentBlock ? textContentBlock.text : '';
-        return res.json({
-          text,
-          products: accumulatedProducts
-        });
-      }
-
-      // If we have tool calls, execute them
-      const toolResults = [];
-      for (const toolCall of toolCalls) {
-        console.log(`Executing tool: ${toolCall.name} with input:`, toolCall.input);
-        
-        let toolResponse;
-        if (!mcpClient) {
-          toolResponse = { isError: true, content: [{ text: "Kapruka MCP client is currently offline." }] };
-        } else {
-          try {
-            let toolArgs = JSON.parse(JSON.stringify(toolCall.input || {}));
-            let targetArgs = toolArgs.params ? toolArgs.params : toolArgs;
-            
-            if (toolCall.name === 'kapruka_check_delivery') {
-              if (targetArgs.delivery_date) {
-                targetArgs.delivery_date = formatToYYYYMMDD(targetArgs.delivery_date);
-              }
-            } else if (toolCall.name === 'kapruka_create_order') {
-              const normalized = normalizeOrderPayload(targetArgs);
-              if (toolArgs.params) {
-                toolArgs.params = normalized;
-              } else {
-                toolArgs = normalized;
-              }
-            }
-            
-            if (!toolArgs.params) {
-              toolArgs = { params: toolArgs };
-            }
-            
-            const rawResult = await mcpClient.callTool({
-              name: toolCall.name,
-              arguments: toolArgs
-            });
-            
-            toolResponse = formatMcpResponse(rawResult);
-
-            // Accumulate search results to display visual cards in the frontend
-            if (toolCall.name === 'kapruka_search_products') {
-              const parsed = extractProductsFromResponse(toolResponse);
-              const enriched = await enrichProductsWithDetails(parsed);
-              accumulatedProducts.push(...enriched);
-            } else if (toolCall.name === 'kapruka_get_product') {
-              if (toolResponse && !toolResponse.isError) {
-                const parsed = extractProductsFromResponse(toolResponse);
-                accumulatedProducts.push(...parsed);
-              }
-            }
-          } catch (e) {
-            console.error(`Error executing tool ${toolCall.name}:`, e.message);
-            toolResponse = { error: e.message };
+    if (configuredProviders.length > 0) {
+      for (const prov of configuredProviders) {
+        try {
+          console.log(`Attempting chat completion with provider: ${prov.name} (${prov.type})...`);
+          if (prov.type === 'gemini') {
+            response = await runGeminiAgentWithSingleKey(messages, clientLang, prov.key, prov.models);
+          } else if (prov.type === 'anthropic') {
+            response = await runClaudeAgent(messages, clientLang, prov.key, prov.models[0]);
+          } else {
+            response = await runOpenAiCompatibleAgentLoop(messages, clientLang, prov.type, prov.key, prov.models);
           }
+          success = true;
+          break; // Exit loop on success!
+        } catch (err) {
+          console.warn(`Provider ${prov.name} (${prov.type}) failed:`, err.message);
+          lastError = err;
         }
-
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: toolCall.id,
-          content: JSON.stringify(toolResponse)
-        });
       }
-
-      // Push tool results back to conversation
-      currentMessages.push({
-        role: 'user',
-        content: toolResults
-      });
     }
 
-    // Fallback if max iterations exceeded
-    return res.status(500).json({ error: "Agent loop exceeded maximum iterations." });
+    if (!success) {
+      console.log('No working API providers found or all failed. Falling back to local Mock Agent...');
+      response = await handleMockAgent(messages, clientLang);
+    }
+
+    return res.json(response);
 
   } catch (error) {
-    console.error('Error in /api/chat endpoint:', error.message || error);
+    console.error('Critical error in /api/chat endpoint:', error.message || error);
     if (error.status === 429 || (error.message && error.message.toLowerCase().includes('rate limit')) || (error.message && error.message.toLowerCase().includes('429'))) {
       return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
     }
     res.status(500).json({ error: error.message });
   }
 });
-
 
 app.listen(PORT, () => {
   console.log(`Kapruka API Bridge Server running on http://localhost:${PORT}`);
