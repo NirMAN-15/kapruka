@@ -446,8 +446,24 @@ async function connectToMcp() {
 // Initial connection
 connectToMcp();
 
-// Middleware to verify MCP connection
-const ensureMcpConnected = (req, res, next) => {
+// Middleware to verify MCP connection (waits on-demand for cold serverless starts)
+const ensureMcpConnected = async (req, res, next) => {
+  if (mcpClient) {
+    return next();
+  }
+
+  console.log('MCP client not connected. Attempting connection now...');
+  if (!isConnecting) {
+    connectToMcp();
+  }
+
+  // Poll for connection up to 5 seconds
+  let attempts = 0;
+  while (!mcpClient && attempts < 10) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    attempts++;
+  }
+
   if (!mcpClient) {
     return res.status(503).json({ 
       error: 'Kapruka MCP bridge is currently disconnected. Retrying connection. Please try again shortly.' 
@@ -689,13 +705,13 @@ app.get('/api/track', ensureMcpConnected, async (req, res) => {
 });
 
 // 7. General connection health status
-app.get('/api/status', (req, res) => {
+app.get('/api/status', ensureMcpConnected, (req, res) => {
   res.json({
     connected: !!mcpClient,
     status: 'ok',
     timestamp: new Date().toISOString()
   });
-})
+});
 
 // --- LLM Orchestration & Agent Loop ---
 
