@@ -402,9 +402,12 @@ async function enrichProductsWithDetails(products) {
 
 // Connect to the remote Kapruka MCP server
 
+let connectionError = null;
+
 async function connectToMcp() {
   if (isConnecting) return;
   isConnecting = true;
+  connectionError = null;
   
   try {
     console.log('Connecting to Kapruka MCP Server...');
@@ -420,6 +423,7 @@ async function connectToMcp() {
     await client.connect(transport);
     console.log('Successfully connected to Kapruka MCP Server');
     mcpClient = client;
+    connectionError = null;
 
     transport.onclose = () => {
       console.warn('MCP connection closed. Attempting reconnect in 5 seconds...');
@@ -429,12 +433,14 @@ async function connectToMcp() {
 
     transport.onerror = (err) => {
       console.error('MCP transport error:', err.message || err);
+      connectionError = err.message || String(err);
       mcpClient = null;
       setTimeout(connectToMcp, 5000);
     };
 
   } catch (error) {
     console.error('Failed to establish MCP connection:', error.message);
+    connectionError = error.message;
     mcpClient = null;
     console.log('Retrying MCP connection in 5 seconds...');
     setTimeout(connectToMcp, 5000);
@@ -466,7 +472,7 @@ const ensureMcpConnected = async (req, res, next) => {
 
   if (!mcpClient) {
     return res.status(503).json({ 
-      error: 'Kapruka MCP bridge is currently disconnected. Retrying connection. Please try again shortly.' 
+      error: `Kapruka MCP bridge is currently disconnected. Reason: ${connectionError || 'Connecting to remote server...'}` 
     });
   }
   next();

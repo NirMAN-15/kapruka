@@ -884,7 +884,8 @@ export default function App() {
           const data = await res.json();
           setApiStatus({ connected: data.connected, checking: false, error: null });
         } else {
-          setApiStatus({ connected: false, checking: false, error: 'Server returned unhealthy status' });
+          const errData = await res.json().catch(() => ({}));
+          setApiStatus({ connected: false, checking: false, error: errData.error || 'Server returned unhealthy status' });
         }
       } catch (err) {
         setApiStatus({ connected: false, checking: false, error: err.message });
@@ -1481,9 +1482,16 @@ export default function App() {
               ● {translations[language].connected}
             </span>
           ) : (
-            <span className="text-rose-400 font-semibold flex items-center gap-1">
-              ● {translations[language].disconnected}
-            </span>
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="text-rose-400 font-semibold flex items-center gap-1">
+                ● {translations[language].disconnected}
+              </span>
+              {apiStatus.error && (
+                <span className="text-[9px] text-slate-500 text-right max-w-[150px] truncate" title={apiStatus.error}>
+                  {apiStatus.error}
+                </span>
+              )}
+            </div>
           )}
         </div>
 
