@@ -1,15 +1,26 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import Anthropic from '@anthropic-ai/sdk';
 
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const clientDistPath = path.join(__dirname, '../client/dist');
+
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000', process.env.FRONTEND_URL].filter(Boolean),
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 app.use(express.json());
+app.use(express.static(clientDistPath));
 
 const PORT = process.env.PORT || 5000;
 const KAPRUKA_MCP_URL = process.env.KAPRUKA_MCP_URL || 'https://mcp.kapruka.com/mcp';
@@ -30,9 +41,9 @@ function formatToYYYYMMDD(dateStr) {
   try {
     const d = new Date(dateStr);
     if (!isNaN(d.getTime())) {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
+      const year = d.getUTCFullYear();
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     }
   } catch (e) {}
@@ -127,135 +138,205 @@ function formatMcpResponse(result) {
 // Extract and parse products from any MCP response structure
 function extractProductsFromResponse(responseData) {
   if (!responseData) return [];
-  if (Array.isArray(responseData.products)) {
-    return responseData.products;
-  }
+
+  // Log raw response for debugging
+  console.log('[extractProductsFromResponse] Raw data type:', typeof responseData, 
+    Array.isArray(responseData) ? 'array' : '',
+    typeof responseData === 'object' ? 'keys:' + Object.keys(responseData).slice(0, 8).join(',') : '');
+
+  // If it's an array of product objects directly
   if (Array.isArray(responseData)) {
-    return responseData;
+    return normalizeProductPrices(responseData);
   }
+
+  // If it has a products array
+  if (Array.isArray(responseData.products)) {
+    return normalizeProductPrices(responseData.products);
+  }
+
+  // If it has items array
+  if (Array.isArray(responseData.items)) {
+    return normalizeProductPrices(responseData.items);
+  }
+
+  // If it has data array
+  if (Array.isArray(responseData.data)) {
+    return normalizeProductPrices(responseData.data);
+  }
+
+  // Fallback: parse from text/markdown
   const textContent = responseData.result || responseData.text || (typeof responseData === 'string' ? responseData : '');
+  if (textContent) {
+    console.log('[extractProductsFromResponse] Falling back to markdown parse. Text preview:', textContent.substring(0, 200));
+  }
   return parseProductsFromMarkdown(textContent);
 }
 
-// Parser for products from markdown text (copied from client)
+// Normalize price fields from MCP JSON product objects (different field names)
+function normalizeProductPrices(products) {
+  if (!Array.isArray(products)) return [];
+  return products.map(p => {
+    if (!p || typeof p !== 'object') return p;
+    // Try to find real price from various possible field names
+    const rawPrice = p.price || p.price_lkr || p.selling_price || p.cost || p.amount || 
+                     p.Price || p.LKR || p.lkr_price || p.unit_price;
+    let normalizedPrice = null;
+    if (typeof rawPrice === 'number' && rawPrice > 0) {
+      normalizedPrice = `LKR ${rawPrice.toLocaleString()}`;
+    } else if (typeof rawPrice === 'string' && rawPrice.trim()) {
+      // Already a string like "LKR 3,500" or "3500"
+      const numMatch = rawPrice.match(/[\d,]+/);
+      if (numMatch) {
+        const num = parseInt(numMatch[0].replace(/,/g, ''), 10);
+        if (num > 0) normalizedPrice = `LKR ${num.toLocaleString()}`;
+      }
+    }
+    console.log(`[normalizeProductPrices] Product: "${p.title || p.name}" raw price fields:`, 
+      { price: p.price, price_lkr: p.price_lkr, selling_price: p.selling_price }, 
+      '→ normalized:', normalizedPrice);
+    return {
+      ...p,
+      title: p.title || p.name || p.product_name || '',
+      price: normalizedPrice, // null if not found — frontend shows "Check on Kapruka"
+      in_stock: p.in_stock !== undefined ? p.in_stock : (p.stock !== undefined ? p.stock > 0 : true),
+      image: p.image || p.image_url || p.thumbnail || p.photo || '',
+      url: p.url || p.product_url || p.link || '',
+      product_id: p.product_id || p.id || ''
+    };
+  });
+}
+
+
+
+// Parser for products from markdown text — handles multiple formats
 function parseProductsFromMarkdown(mdText) {
   if (!mdText || typeof mdText !== 'string') return [];
-  
+
+  // Log raw text for debugging
+  console.log('[parseProductsFromMarkdown] Parsing text (first 500 chars):', mdText.substring(0, 500));
+
   const products = [];
   const lines = mdText.split('\n');
   let currentProduct = null;
-  
+
+  const extractPrice = (text) => {
+    // Match LKR 6,990 or Rs. 4,200 or RS 990 etc.
+    const m = text.match(/(?:lkr|rs\.?)\s*([\d,]+)/i);
+    return m ? `LKR ${m[1]}` : null;
+  };
+
+  const isNonProductTitle = (t) => {
+    if (!t || t.length < 4) return true;
+    if (t.endsWith(':')) return true;
+    if (/^(id|url|link|image|price|note|info)$/i.test(t)) return true;
+    if (/^(shipping|estimated|tracking|shipment|local delivery|insurance|vendor|weight|dimension|colour|color|size|material|brand|sku|barcode|specification|detail|benefit|warning|caution)/i.test(t)) return true;
+    return false;
+  };
+
+  const saveCurrentProduct = () => {
+    if (!currentProduct) return;
+    if (currentProduct.url && !currentProduct.product_id) {
+      const idFromUrl = currentProduct.url.match(/\/kid\/([^/]+)/i) || currentProduct.url.match(/\/([^/]+)$/);
+      if (idFromUrl) currentProduct.product_id = idFromUrl[1].toUpperCase();
+    }
+    products.push(currentProduct);
+    currentProduct = null;
+  };
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    
-    // Match titles: can start with optional "*", "-", "1.", etc. then "**Title**"
-    const titleMatch = line.match(/^\s*[-*]?\s*\*\*(?:\d+\.\s*)?([^*]+)\*\*/);
-    if (titleMatch) {
-      if (currentProduct) {
-        if (currentProduct.url && !currentProduct.product_id) {
-          const idFromUrl = currentProduct.url.match(/\/kid\/([^/]+)/i) || currentProduct.url.match(/\/([^/]+)$/);
-          if (idFromUrl) {
-            currentProduct.product_id = idFromUrl[1].toUpperCase();
-          }
-        }
-        products.push(currentProduct);
+
+    // FORMAT 1: "1. Title - LKR 6,990" or "1. **Title** - LKR 6,990"
+    const numberedMatch = line.match(/^\d+\.\s+\*?\*?([^*\n]+?)\*?\*?\s*[-–]\s*(?:lkr|rs\.?)\s*([\d,]+)/i);
+    if (numberedMatch) {
+      saveCurrentProduct();
+      const title = numberedMatch[1].trim().replace(/\*\*/g, '');
+      const priceVal = numberedMatch[2];
+      if (!isNonProductTitle(title)) {
+        currentProduct = { title, price: `LKR ${priceVal}`, in_stock: true, image: '', product_id: '', url: '' };
       }
-      currentProduct = {
-        title: titleMatch[1].trim(),
-        price: 'LKR 3,500',
-        in_stock: true,
-        image: 'https://via.placeholder.com/150',
-        product_id: '',
-        url: ''
-      };
       continue;
     }
-    
+
+    // FORMAT 2: "**Title**" possibly with price inline
+    const boldMatch = line.match(/^\s*[-*\d.]*\s*\*\*([^*]+)\*\*/);
+    if (boldMatch) {
+      const candidateTitle = boldMatch[1].trim();
+      if (!isNonProductTitle(candidateTitle)) {
+        saveCurrentProduct();
+        const inlinePrice = extractPrice(line);
+        currentProduct = { title: candidateTitle, price: inlinePrice, in_stock: true, image: '', product_id: '', url: '' };
+      }
+      continue;
+    }
+
+    // FORMAT 3: "- Title - LKR X" or "- Title: LKR X"
+    const dashTitlePrice = line.match(/^[-*]\s+(.+?)\s*[-:]\s*(?:lkr|rs\.?)\s*([\d,]+)/i);
+    if (dashTitlePrice) {
+      const candidateTitle = dashTitlePrice[1].trim().replace(/\*\*/g, '');
+      if (!isNonProductTitle(candidateTitle)) {
+        saveCurrentProduct();
+        currentProduct = { title: candidateTitle, price: `LKR ${dashTitlePrice[2]}`, in_stock: true, image: '', product_id: '', url: '' };
+      }
+      continue;
+    }
+
+    // Fields under current product
     if (currentProduct) {
-      const idMatch = line.match(/ID:\s*`?([^`\s]+)`?/i) || line.match(/ID:\s*(\w+)/i) || line.match(/Product ID:\s*(\w+)/i);
-      if (idMatch) {
-        currentProduct.product_id = idMatch[1].trim();
+      const idMatch = line.match(/(?:ID|Product ID):\s*`?([^`\s]+)`?/i);
+      if (idMatch) currentProduct.product_id = idMatch[1].trim();
+
+      if (!currentProduct.price) {
+        const priceVal = extractPrice(line);
+        if (priceVal) currentProduct.price = priceVal;
       }
-      
-      const priceMatch = line.match(/(?:lkr|rs\.?)\s*([\d,]+)/i);
-      if (priceMatch) {
-        currentProduct.price = `LKR ${priceMatch[1]}`;
-      }
-      
+
       if (line.toLowerCase().includes('out of stock') || line.toLowerCase().includes('unavailable')) {
         currentProduct.in_stock = false;
       }
-      
-      const imgMatch = line.match(/!\[.*?\]\((https?:\/\/[^)]+)\)/i) || line.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i);
-      if (imgMatch) {
-        currentProduct.image = imgMatch[1].trim();
-      }
 
-      // Also match text-format image lines: "Image: URL", "Thumbnail: URL", etc.
+      const imgMatch = line.match(/!\[.*?\]\((https?:\/\/[^)]+)\)/i);
+      if (imgMatch) currentProduct.image = imgMatch[1].trim();
+
       const imgTextMatch = line.match(/(?:Image|Thumbnail|Photo|Img|Picture)(?:\*\*?)*:\s*(?:\*\*?)*(https?:\/\/[^\s*)]+)/i);
-      if (imgTextMatch) {
-        currentProduct.image = imgTextMatch[1].trim();
-      }
-      
+      if (imgTextMatch) currentProduct.image = imgTextMatch[1].trim();
+
       const urlMatch = line.match(/(?:^|[^!])\[.*?\]\((https?:\/\/[^)]+)\)/i);
       if (urlMatch) {
         currentProduct.url = urlMatch[1].trim();
       } else if (!line.includes('![') && !currentProduct.url) {
         const fallbackUrlMatch = line.match(/\((https?:\/\/[^)]+)\)/i);
-        if (fallbackUrlMatch) {
-          currentProduct.url = fallbackUrlMatch[1].trim();
-        }
+        if (fallbackUrlMatch) currentProduct.url = fallbackUrlMatch[1].trim();
       }
     }
   }
-  
-  if (currentProduct) {
-    if (currentProduct.url && !currentProduct.product_id) {
-      const idFromUrl = currentProduct.url.match(/\/kid\/([^/]+)/i) || currentProduct.url.match(/\/([^/]+)$/);
-      if (idFromUrl) {
-        currentProduct.product_id = idFromUrl[1].toUpperCase();
-      }
-    }
-    products.push(currentProduct);
-  }
-  
+
+  saveCurrentProduct();
+
   return products.map(p => {
-    if (!p.image || p.image === 'https://via.placeholder.com/150') {
-      // Try to derive image from Kapruka CDN using the product URL
+    if (!p.image) {
       if (p.url) {
-        // Match patterns like /category/PRODUCTID or /kid/PRODUCTID or ending in a numeric/alphanumeric ID
         const kaprukaIdMatch = p.url.match(/kapruka\.com\/[^/]+\/([A-Za-z0-9_-]+)\/?$/) ||
                                p.url.match(/kapruka\.com\/kid\/([A-Za-z0-9_-]+)/i);
         if (kaprukaIdMatch) {
           const pid = kaprukaIdMatch[1];
-          // Use Kapruka CDN URL pattern
           p.image = `https://www.kapruka.com/spicific/${pid}/0_${pid}.jpg`;
         }
       }
-      // If still no image (URL didn't match or no URL), use Unsplash category fallbacks
-      if (!p.image || p.image === 'https://via.placeholder.com/150') {
-        const lowerTitle = p.title.toLowerCase();
-        if (lowerTitle.includes('cake') || (p.product_id && p.product_id.toUpperCase().startsWith('CAKE'))) {
-          p.image = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500&auto=format&fit=crop&q=60';
-        } else if (lowerTitle.includes('flower') || lowerTitle.includes('rose') || (p.product_id && p.product_id.toUpperCase().startsWith('FLOWER'))) {
-          p.image = 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=500&auto=format&fit=crop&q=60';
-        } else if (lowerTitle.includes('chocolate') || lowerTitle.includes('choco')) {
-          p.image = 'https://images.unsplash.com/photo-1548907040-4d42b52145ea?w=500&auto=format&fit=crop&q=60';
-        } else if (lowerTitle.includes('toy') || lowerTitle.includes('teddy')) {
-          p.image = 'https://images.unsplash.com/photo-1559251606-c623743a6d76?w=500&auto=format&fit=crop&q=60';
-        } else if (lowerTitle.includes('hamper') || lowerTitle.includes('gift')) {
-          p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
-        } else {
-          p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
-        }
+      if (!p.image) {
+        const lt = p.title.toLowerCase();
+        if (lt.includes('cake')) p.image = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500&auto=format&fit=crop&q=60';
+        else if (lt.includes('flower') || lt.includes('rose')) p.image = 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=500&auto=format&fit=crop&q=60';
+        else if (lt.includes('chocolate') || lt.includes('ferrero') || lt.includes('choco')) p.image = 'https://images.unsplash.com/photo-1548907040-4d42b52145ea?w=500&auto=format&fit=crop&q=60';
+        else if (lt.includes('toy') || lt.includes('teddy')) p.image = 'https://images.unsplash.com/photo-1559251606-c623743a6d76?w=500&auto=format&fit=crop&q=60';
+        else p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
       }
     }
     return p;
   });
 }
 
-// Cache for product details to avoid redundant API calls and rate limit exhaustion
 const productDetailsCache = new Map();
 
 // Enrich products by fetching details (e.g. real image URLs) using kapruka_get_product tool
@@ -273,7 +354,7 @@ async function enrichProductsWithDetails(products) {
       if (!p.product_id) return p;
 
       // Skip enrichment if we already have a real Kapruka image and URL
-      const hasRealImage = p.image && !p.image.includes('placeholder') && !p.image.includes('images.unsplash.com');
+      const hasRealImage = p.image && !p.image.includes('images.unsplash.com');
       const hasRealUrl = p.url && p.url.includes('kapruka.com');
       if (hasRealImage && hasRealUrl) {
         return p;
@@ -295,7 +376,7 @@ async function enrichProductsWithDetails(products) {
         if (parsedDetails && parsedDetails.length > 0) {
           const detailProduct = parsedDetails[0];
           const enrichedInfo = {
-            image: detailProduct.image && detailProduct.image !== 'https://via.placeholder.com/150' ? detailProduct.image : p.image,
+            image: detailProduct.image ? detailProduct.image : p.image,
             price: detailProduct.price || p.price,
             in_stock: detailProduct.in_stock !== undefined ? detailProduct.in_stock : p.in_stock,
             url: detailProduct.url || p.url
@@ -339,7 +420,6 @@ async function connectToMcp() {
     await client.connect(transport);
     console.log('Successfully connected to Kapruka MCP Server');
     mcpClient = client;
-    isConnecting = false;
 
     transport.onclose = () => {
       console.warn('MCP connection closed. Attempting reconnect in 5 seconds...');
@@ -349,14 +429,17 @@ async function connectToMcp() {
 
     transport.onerror = (err) => {
       console.error('MCP transport error:', err.message || err);
+      mcpClient = null;
+      setTimeout(connectToMcp, 5000);
     };
 
   } catch (error) {
     console.error('Failed to establish MCP connection:', error.message);
     mcpClient = null;
-    isConnecting = false;
     console.log('Retrying MCP connection in 5 seconds...');
     setTimeout(connectToMcp, 5000);
+  } finally {
+    isConnecting = false;
   }
 }
 
@@ -497,12 +580,58 @@ app.get('/api/delivery', ensureMcpConnected, async (req, res) => {
       arguments: { params: args }
     });
 
-    res.json(formatMcpResponse(result));
+    const formatted = formatMcpResponse(result);
+    
+    // ===== LOG FULL RAW RESPONSE =====
+    console.log('[DeliveryAPI] Full raw MCP result:', JSON.stringify(result).substring(0, 1000));
+    console.log('[DeliveryAPI] Formatted response:', JSON.stringify(formatted).substring(0, 600));
+
+    // Try to extract fee from structured fields first
+    let fee = null;
+    const tryFeeFields = (obj) => {
+      if (!obj || typeof obj !== 'object') return null;
+      const f = obj.fee ?? obj.delivery_fee ?? obj.rate ?? obj.shipping_fee ?? 
+                obj.cost ?? obj.charge ?? obj.amount ?? obj.delivery_cost;
+      if (typeof f === 'number' && f > 0) return f;
+      if (typeof f === 'string') {
+        const n = parseFloat(f.replace(/[^0-9.]/g, ''));
+        if (n > 0) return n;
+      }
+      return null;
+    };
+
+    fee = tryFeeFields(formatted) ?? tryFeeFields(formatted.delivery) ?? tryFeeFields(formatted.data);
+
+    // If no structured fee, parse from text
+    if (!fee) {
+      const text = formatted.result || formatted.text || '';
+      console.log('[DeliveryAPI] Parsing fee from text:', text.substring(0, 400));
+      
+      // Try specific delivery fee patterns first (avoid matching product prices)
+      const patterns = [
+        /delivery\s*(?:fee|charge|cost|rate)\s*[:\-]?\s*(?:lkr|rs\.?)?\s*([\d,]+)/i,
+        /(?:fee|charge|rate)\s*[:\-]\s*(?:lkr|rs\.?)?\s*([\d,]+)/i,
+        /(?:lkr|rs\.?)\s*([\d,]+)/i,
+      ];
+      for (const pat of patterns) {
+        const m = text.match(pat);
+        if (m) {
+          const n = parseFloat(m[1].replace(/,/g, ''));
+          if (n > 0 && n < 50000) { fee = n; break; }
+        }
+      }
+    }
+
+    console.log('[DeliveryAPI] Final extracted fee:', fee);
+
+    // Send both the raw formatted response AND the extracted fee
+    res.json({ ...formatted, extracted_fee: fee });
   } catch (error) {
     console.error('Error in /api/delivery:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // 5. Create checkout order
 app.post('/api/order', ensureMcpConnected, async (req, res) => {
@@ -525,7 +654,7 @@ app.post('/api/order', ensureMcpConnected, async (req, res) => {
     if (gift_message) args.gift_message = String(gift_message);
     if (currency) args.currency = String(currency);
 
-    console.log('Calling kapruka_create_order with:', JSON.stringify(args));
+    console.log('Calling kapruka_create_order — items:', args.cart?.length, 'city:', args.delivery?.city);
     const result = await mcpClient.callTool({
       name: 'kapruka_create_order',
       arguments: { params: args }
@@ -566,36 +695,50 @@ app.get('/api/status', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString()
   });
-});
+})
 
 // --- LLM Orchestration & Agent Loop ---
 
-const SYSTEM_PROMPT = `You are a helpful, warm, and professional retail assistant for Kapruka, Sri Lanka's leading e-commerce and gift delivery service.
-Your name is Kapruka AI Shopping Assistant.
+const SYSTEM_PROMPT = `You are Kapruka AI, a friendly, warm and smart Sri Lankan shopping assistant for Kapruka.com.
 
-Core Instructions:
-1. Translate Sinhala and Tanglish queries into English keywords before calling product search tools (e.g., if the user asks for "chocolate cake ekak", search for "chocolate cake").
-2. Respond in the same language/script the user initiated the chat with.
-   - If the user writes in Sinhala script, respond in Sinhala.
-   - If the user writes in Tanglish (Sinhala words in English letters, e.g., "Mata chocolate cake ekak ona"), respond in Tanglish.
-   - If the user writes in English, respond in English.
-3. Adopt a helpful, warm, and professional retail assistant voice (e.g., "Ayu Bowan! 🇱🇰", "The perfect choice for a birthday would be...").
-4. Format product data elegantly in markdown.
-5. When searching for products, checking delivery fees, or creating checkout orders, use the appropriate Kapruka MCP tools.
-6. When a product is found, present it beautifully. The client app will automatically render product cards when you retrieve products using search tools. Make sure to invite the user to check them out.
-7. Assist users with the checkout loop by verifying delivery cities using 'kapruka_list_delivery_cities' and checking rates and date availability using 'kapruka_check_delivery'.
-8. If the user wants to finalize an order, guide them to click 'Proceed to Checkout' in the cart panel. Explain the checkout process, collection of recipient/sender info, and secure payment redirect.
-9. Track orders using 'kapruka_track_order' and show the structured status timeline.
-10. Keep your text responses concise, clean, and simple. Do not duplicate product details (like product IDs, links, or long descriptions) in your text response if the product cards are being displayed, as it makes the chat interface cluttered. Simply highlight the main choices and invite the user to view the cards.
+CRITICAL RULES FOR RESPONDING (FOLLOW EXACTLY):
+1. CHAT STYLE: Write like a friendly, casual person sending a chat message to a friend. 
+   - NEVER use markdown in your replies. NO bold asterisks (**), NO hash headings (#), NO bullet/dash lists (- or *), NO tables.
+   - Keep sentences short, warm, natural, and helpful.
+   - DO NOT repeat product names, prices, or details in your text. The UI automatically displays the matching product cards right below your message!
+   - Bad text response: "Found these: 1. Chocolate cake - LKR 3500..."
+   - Good text response: "I found some yummy chocolate cakes for you! Check them out below and let me know if you like any of them."
 
-Remember: When calling tools, the parameters will be passed to the Kapruka remote server. The server expects parameters to be wrapped inside a 'params' object, but you should output standard flat parameters; the backend will automatically wrap them inside 'params' before calling the tool.
-Always be polite, warm, and helpful.
+2. LANGUAGE SYNC & CASUAL TONE:
+   - If the user writes in English, reply in casual English.
+     Example: "I found some nice flower bouquets for your friend. Take a look below!"
+   - If the user writes in Sinhala script, reply in natural, casual Sinhala.
+     Example: "යාලුවට දෙන්න ලස්සන මල් කළඹවල් කිහිපයක් මම හෙව්වා. පහළ තියෙන ඒව බලන්න!"
+   - If the user writes in Tanglish (Sinhala using English letters like: mata, oni, denna, epa, yaluwekta, kenk), reply in casual Tanglish.
+     Example: "Friend ta denna lassan mal kalaba keepayak mama hoyala thiyenne. Pahala thiyena ewa balanna!"
 
-CRITICAL INSTRUCTION FOR LANGUAGE SYNC:
-You MUST accurately detect the language and script of the user's most recent message.
-If the user writes in Sinhala script (සිංහල), your ENTIRE response MUST be in Sinhala script. DO NOT reply in English or Tanglish to a Sinhala script query.
-If the user writes in Tanglish (Sinhala words written using the English/Latin alphabet, containing words like 'mata', 'ona', 'ekak', 'thiyenawa', 'puluwan', 'oya', 'denna'), your ENTIRE response MUST be in Tanglish. DO NOT reply in standard English.
-If the user writes in English, reply in English.`;
+3. UNDERSTANDING INTENT & HANDLING EXCLUSIONS (CRITICAL):
+   - Pay attention to negation words like "epa" (Sinhala/Tanglish for "do not want"), "nathuwa" (without), "no", "dont want".
+   - Example: "mata yaluwekta birthday gift ekkak oni , choclates, cakes epa"
+     - This means they want a gift for their friend, but NOT chocolates and NOT cakes.
+     - You MUST call kapruka_search_products for alternative categories like "flower" or "toy" or "hamper".
+     - Never recommend or search for negated/excluded items!
+   - If the user's request is unclear or missing information (e.g. "I want to buy a gift"), ask ONE short clarification question (e.g. "Sure! Who is this gift for, and what do they like?").
+
+4. SEARCH & PRODUCT DETAILS:
+   - Always call kapruka_search_products to find items. Do not guess or output placeholders.
+   - Translate all Tanglish/Sinhala keywords to English before calling tools:
+     * "mal" -> "flowers"
+     * "ceyk/keki" -> "cake"
+     * "perse" -> "purse" / "wallet"
+     * "oralosuwak / oralosuwa / ඔරලෝසුව / ඔරලෝසුවක්" -> "watch" (wrist watch or clock). IMPORTANT: The Sinhala word "oralosuwak" means "watch" (wrist watch). It has absolutely nothing to do with "oral care" or "mouth hygiene"! NEVER search for oral care products (like toothbrushes or flossers) when the user asks for a watch.
+     * "kenek / kenekta / kenkt" -> "person/someone" (e.g. "boy kenkt" means "for a boy"). It is NOT a cake!
+   - When a user asks for more information about a product, call kapruka_get_product. Write a short 1-2 sentence friendly summary (e.g., flavor, size, who it is good for). Do NOT output technical bullet points.
+
+5. ERROR HANDLING POLICY:
+   - If a tool fails or throws an error, apologize gracefully. DO NOT mention developer logs, JSON keys, thought signatures, or backend errors to the user.
+   - Friendly error example: "Oops, I'm having trouble retrieving the products right now. Let me try again in a moment."`;
+
 
 const CLAUDE_TOOLS = [
   {
@@ -619,7 +762,7 @@ const CLAUDE_TOOLS = [
         min_price: { type: "number", description: "Minimum price threshold in LKR." },
         max_price: { type: "number", description: "Maximum price threshold in LKR." },
         in_stock_only: { type: "boolean", description: "Filter out out-of-stock items if set to true." },
-        sort: { type: "string", description: "Sorting option: 'price_low_to_high' or 'price_high_to_low'." },
+        sort: { type: "string", description: "Sorting option. Must be one of: 'bestseller', 'newest', 'price_asc', 'price_desc', 'relevance'." },
         limit: { type: "integer", description: "Number of results (pagination limit)." },
         currency: { type: "string", description: "Currency (e.g., 'LKR', 'USD')." }
       }
@@ -761,18 +904,58 @@ async function handleMockAgent(messages, clientLang) {
     return matches.map(m => m[1].trim());
   };
 
-  // Determine search keyword
+  // Determine search keyword with negation/exclusion rules
+  const checkNegation = (term) => {
+    const idx = query.indexOf(term);
+    if (idx === -1) return false;
+    
+    const substringAfter = query.substring(idx + term.length, idx + term.length + 20);
+    const substringBefore = query.substring(Math.max(0, idx - 20), idx);
+    
+    if (substringAfter.includes('epa') || substringAfter.includes('nathuwa') || substringAfter.includes('need not') || substringAfter.includes('dont') || substringAfter.includes('dont want') || substringAfter.includes('not want')) {
+      return true;
+    }
+    if (substringBefore.includes('no ') || substringBefore.includes('dont want') || substringBefore.includes('without') || substringBefore.includes('nathuwa')) {
+      return true;
+    }
+    return false;
+  };
+
   let keyword = null;
-  if (query.includes('cake') || query.includes('keki') || query.includes('keik') || query.includes('කේක්')) {
-    keyword = 'Cake';
-  } else if (query.includes('flower') || query.includes('mal') || query.includes('මල්') || query.includes('pokurak')) {
-    keyword = 'Flowers';
-  } else if (query.includes('chocolate') || query.includes('choc') || query.includes('චොකලට්')) {
-    keyword = 'Chocolate';
-  } else if (query.includes('toy') || query.includes('teddy') || query.includes('doll') || query.includes('බෝනික්කා') || query.includes('saththu')) {
-    keyword = 'Toy';
-  } else if (query.includes('hamper') || query.includes('gift') || query.includes('තෑගි')) {
-    keyword = 'Hamper';
+  const categories = [
+    { name: 'Cake', terms: ['cake', 'keki', 'keik', 'කේක්'] },
+    { name: 'Flowers', terms: ['flower', 'mal', 'මල්', 'pokurak'] },
+    { name: 'Chocolate', terms: ['chocolate', 'choc', 'චොකලට්'] },
+    { name: 'Toy', terms: ['toy', 'teddy', 'doll', 'බෝනික්කා', 'saththu'] },
+    { name: 'Hamper', terms: ['hamper', 'gift', 'තෑගි'] },
+    { name: 'Watch', terms: ['watch', 'oralosu', 'ඔරලෝසු', 'orlosu', 'ඔරලෝසුවක්'] },
+    { name: 'Purse', terms: ['purse', 'perse', 'wallet', 'පර්ස්', 'ලෙදර්'] }
+  ];
+
+  const mentioned = [];
+  const negatedKeywords = [];
+  for (const cat of categories) {
+    for (const term of cat.terms) {
+      if (query.includes(term)) {
+        if (checkNegation(term)) {
+          negatedKeywords.push(cat.name);
+        } else {
+          mentioned.push(cat.name);
+        }
+        break;
+      }
+    }
+  }
+
+  const finalCandidates = mentioned.filter(c => !negatedKeywords.includes(c));
+  if (finalCandidates.length > 0) {
+    keyword = finalCandidates[0];
+  } else if (query.includes('gift') || query.includes('yaluwekta') || query.includes('friend') || query.includes('තෑගි')) {
+    if (!negatedKeywords.includes('Hamper')) {
+      keyword = 'Hamper';
+    } else if (!negatedKeywords.includes('Flowers')) {
+      keyword = 'Flowers';
+    }
   }
 
   // Detect delivery rate check intent (deliver to, kandy, galle, delivery rate)
@@ -1163,7 +1346,7 @@ async function runGeminiAgentWithSingleKey(messages, clientLang, apiKey, models)
     }
 
     contents.push({
-      role: 'function',
+      role: 'user',
       parts: functionResponseParts
     });
   }
@@ -1188,7 +1371,8 @@ async function runOpenAiCompatibleAgentLoop(messages, clientLang, providerType, 
   const urlMap = {
     groq: 'https://api.groq.com/openai/v1/chat/completions',
     kimi: 'https://api.moonshot.cn/v1/chat/completions',
-    glm: 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+    glm: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+    nvidia: 'https://integrate.api.nvidia.com/v1/chat/completions'
   };
 
   const url = urlMap[providerType];
@@ -1472,20 +1656,16 @@ async function runClaudeAgent(messages, clientLang, apiKey, model) {
 // Default fallback models for each provider
 const PROVIDER_MODELS = {
   gemini: [
-    'gemini-3.5-flash',
-    'gemini-3.1-pro-preview',
-    'gemini-3.1-flash-lite',
-    'gemini-2.5-flash',
-    'gemini-2.5-pro',
-    'gemini-2.5-flash-lite',
-    'gemini-flash-latest',
-    'gemini-pro-latest'
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro'
   ],
   groq: [
     'llama-3.3-70b-versatile',
-    'mixtral-8x7b-32768',
     'llama-3.1-8b-instant',
-    'gemma2-9b-it'
+    'llama3-70b-8192',
+    'llama3-8b-8192'
   ],
   kimi: [
     'moonshot-v1-8k',
@@ -1495,6 +1675,9 @@ const PROVIDER_MODELS = {
     'glm-4-air',
     'glm-4-flash',
     'glm-4'
+  ],
+  nvidia: [
+    'nvidia/nemotron-3-ultra-550b-a55b'
   ],
   anthropic: [
     'claude-3-5-sonnet-20241022',
@@ -1523,7 +1706,18 @@ app.post('/api/chat', async (req, res) => {
       });
     });
 
-    // 2. Groq keys
+    // 2. Nvidia keys (Second Priority)
+    const nvidiaKeys = (process.env.NVIDIA_API_KEYS || process.env.NVIDIA_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
+    nvidiaKeys.forEach((key, index) => {
+      configuredProviders.push({
+        type: 'nvidia',
+        key,
+        name: `Nvidia Key #${index + 1}`,
+        models: PROVIDER_MODELS.nvidia
+      });
+    });
+
+    // 3. Groq keys
     const groqKeys = (process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
     groqKeys.forEach((key, index) => {
       configuredProviders.push({
@@ -1533,6 +1727,7 @@ app.post('/api/chat', async (req, res) => {
         models: PROVIDER_MODELS.groq
       });
     });
+
 
     // 3. Kimi keys (Moonshot)
     const kimiKeys = (process.env.KIMI_API_KEYS || process.env.KIMI_API_KEY || process.env.MOONSHOT_API_KEYS || process.env.MOONSHOT_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
@@ -1556,11 +1751,14 @@ app.post('/api/chat', async (req, res) => {
       });
     });
 
-    // 5. Anthropic key
-    if (process.env.ANTHROPIC_API_KEY) {
+
+
+    // 5. Anthropic key (skip if placeholder value)
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey && !anthropicKey.startsWith('your_') && !anthropicKey.startsWith('sk-ant-placeholder')) {
       configuredProviders.push({
         type: 'anthropic',
-        key: process.env.ANTHROPIC_API_KEY,
+        key: anthropicKey,
         name: 'Anthropic Key',
         models: PROVIDER_MODELS.anthropic
       });
@@ -1604,6 +1802,11 @@ app.post('/api/chat', async (req, res) => {
     }
     res.status(500).json({ error: error.message });
   }
+});
+
+// Catch-all route for SPA client-side routing, fallback to serving index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(clientDistPath, 'index.html'));
 });
 
 app.listen(PORT, () => {

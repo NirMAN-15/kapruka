@@ -19,6 +19,17 @@ import {
   X
 } from 'lucide-react';
 
+// ====== Theme Context ======
+const ThemeContext = React.createContext({ isDark: true });
+const useTheme = () => React.useContext(ThemeContext);
+
+// Theme colour helper — returns Tailwind class strings based on mode
+const th = (dark, light) => dark; // used as: th('dark-class','light-class')
+// We'll override via CSS variables instead
+
+
+const FALLBACK_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect width='150' height='150' fill='%231e1b4b'/%3E%3Ctext x='50%25' y='50%25' font-size='40' text-anchor='middle' dy='.3em' fill='%23a78bfa'%3E🎁%3C/text%3E%3C/svg%3E";
+
 const formatDateToYYYYMMDD = (dateStr) => {
   if (!dateStr || typeof dateStr !== 'string') return dateStr;
   const match = dateStr.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
@@ -30,6 +41,43 @@ const formatDateToYYYYMMDD = (dateStr) => {
   }
   return dateStr;
 };
+
+const POPULAR_CITIES = [
+  "Colombo 01 (Fort)",
+  "Colombo 02 (Slave Island)",
+  "Colombo 03 (Colpetty)",
+  "Colombo 04 (Bambalapitiya)",
+  "Colombo 05 (Havelock Town)",
+  "Colombo 06 (Wellawatte)",
+  "Colombo 07 (Cinnamon Gardens)",
+  "Colombo 08 (Borella)",
+  "Colombo 09 (Dematagoda)",
+  "Colombo 10 (Maradana)",
+  "Colombo 11 (Pettah)",
+  "Colombo 12 (Hultsdorf)",
+  "Colombo 13 (Kotahena)",
+  "Colombo 14 (Grandpass)",
+  "Colombo 15 (Mutwal)",
+  "Nugegoda",
+  "Kotte",
+  "Battaramulla",
+  "Dehiwala",
+  "Mount Lavinia",
+  "Kandy",
+  "Galle",
+  "Negombo",
+  "Jaffna",
+  "Matara",
+  "Bandarawela",
+  "Gampaha",
+  "Kurunegala",
+  "Trincomalee",
+  "Anuradhapura",
+  "Ratnapura",
+  "Kalutara",
+  "Batticaloa"
+].sort();
+
 
 const translations = {
   en: {
@@ -251,92 +299,135 @@ const extractCities = (data) => {
 // Parser for products from markdown text
 function parseProductsFromMarkdown(mdText) {
   if (!mdText || typeof mdText !== 'string') return [];
-  
+
   const products = [];
   const lines = mdText.split('\n');
   let currentProduct = null;
-  
+
+  // Helper: extract price from any text
+  const extractPrice = (text) => {
+    const m = text.match(/(?:lkr|rs\.?)\s*([\d,]+)/i);
+    return m ? `LKR ${m[1]}` : null;
+  };
+
+  // Helper: is this a non-product keyword
+  const isNonProductTitle = (t) => {
+    if (!t || t.length < 4) return true;
+    if (t.endsWith(':')) return true;
+    if (/^(id|url|link|image|price|note|info)$/i.test(t)) return true;
+    if (/^(shipping|estimated|tracking|shipment|local delivery|insurance|vendor|weight|dimension|colour|color|size|material|brand|sku|barcode|specification|detail|benefit|warning|caution)/i.test(t)) return true;
+    return false;
+  };
+
+  const saveCurrentProduct = () => {
+    if (!currentProduct) return;
+    if (currentProduct.url && !currentProduct.product_id) {
+      const idFromUrl = currentProduct.url.match(/\/kid\/([^/]+)/i) || currentProduct.url.match(/\/([^/]+)$/);
+      if (idFromUrl) currentProduct.product_id = idFromUrl[1].toUpperCase();
+    }
+    products.push(currentProduct);
+    currentProduct = null;
+  };
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    
-    // Match titles: can start with optional "*", "-", "1.", etc. then "**Title**"
-    const titleMatch = line.match(/^\s*[-*]?\s*\*\*(?:\d+\.\s*)?([^*]+)\*\*/);
-    if (titleMatch) {
-      if (currentProduct) {
-        // Try to extract ID from URL if empty before saving
-        if (currentProduct.url && !currentProduct.product_id) {
-          const idFromUrl = currentProduct.url.match(/\/kid\/([^/]+)/i) || currentProduct.url.match(/\/([^/]+)$/);
-          if (idFromUrl) {
-            currentProduct.product_id = idFromUrl[1].toUpperCase();
-          }
-        }
-        products.push(currentProduct);
+
+    // FORMAT 1: Numbered list "1. Title - LKR 6,990" or "1. **Title** - LKR 6,990"
+    const numberedMatch = line.match(/^\d+\.\s+\*?\*?([^*\n]+?)\*?\*?\s*[-–]\s*(?:lkr|rs\.?)\s*([\d,]+)/i);
+    if (numberedMatch) {
+      saveCurrentProduct();
+      const title = numberedMatch[1].trim().replace(/\*\*/g, '');
+      const priceVal = numberedMatch[2];
+      if (!isNonProductTitle(title)) {
+        currentProduct = {
+          title,
+          price: `LKR ${priceVal}`,
+          in_stock: true,
+          image: FALLBACK_IMAGE,
+          product_id: '',
+          url: ''
+        };
       }
-      currentProduct = {
-        title: titleMatch[1].trim(),
-        price: 'LKR 3,500',
-        in_stock: true,
-        image: 'https://via.placeholder.com/150',
-        product_id: '',
-        url: ''
-      };
       continue;
     }
-    
+
+    // FORMAT 2: Bold title "**Title**" possibly with price on same line
+    const boldMatch = line.match(/^\s*[-*\d.]*\s*\*\*([^*]+)\*\*/);
+    if (boldMatch) {
+      const candidateTitle = boldMatch[1].trim();
+      if (!isNonProductTitle(candidateTitle)) {
+        saveCurrentProduct();
+        // Check if price is also on this same line
+        const inlinePrice = extractPrice(line);
+        currentProduct = {
+          title: candidateTitle,
+          price: inlinePrice, // null if not found
+          in_stock: true,
+          image: FALLBACK_IMAGE,
+          product_id: '',
+          url: ''
+        };
+      }
+      continue;
+    }
+
+    // FORMAT 3: Plain "- Title - LKR X" or "- Title: LKR X"
+    const dashTitlePrice = line.match(/^[-*]\s+(.+?)\s*[-:]\s*(?:lkr|rs\.?)\s*([\d,]+)/i);
+    if (dashTitlePrice) {
+      const candidateTitle = dashTitlePrice[1].trim().replace(/\*\*/g, '');
+      if (!isNonProductTitle(candidateTitle)) {
+        saveCurrentProduct();
+        currentProduct = {
+          title: candidateTitle,
+          price: `LKR ${dashTitlePrice[2]}`,
+          in_stock: true,
+          image: FALLBACK_IMAGE,
+          product_id: '',
+          url: ''
+        };
+      }
+      continue;
+    }
+
+    // For current product: extract sub-fields from following lines
     if (currentProduct) {
-      const idMatch = line.match(/ID:\s*`?([^`\s]+)`?/i) || line.match(/ID:\s*(\w+)/i) || line.match(/Product ID:\s*(\w+)/i);
-      if (idMatch) {
-        currentProduct.product_id = idMatch[1].trim();
+      const idMatch = line.match(/(?:ID|Product ID):\s*`?([^`\s]+)`?/i);
+      if (idMatch) currentProduct.product_id = idMatch[1].trim();
+
+      // Price on its own line (only set if not already found)
+      if (!currentProduct.price) {
+        const priceVal = extractPrice(line);
+        if (priceVal) currentProduct.price = priceVal;
       }
-      
-      // Matches LKR 2,300 or RS.4,250 or Rs. 4,250
-      const priceMatch = line.match(/(?:lkr|rs\.?)\s*([\d,]+)/i);
-      if (priceMatch) {
-        currentProduct.price = `LKR ${priceMatch[1]}`;
-      }
-      
+
       if (line.toLowerCase().includes('out of stock') || line.toLowerCase().includes('unavailable')) {
         currentProduct.in_stock = false;
       }
-      
-      const imgMatch = line.match(/!\[[^\]]*\]\((https?:\/\/[^)]+)\)/i);
-      if (imgMatch) {
-        currentProduct.image = imgMatch[1].trim();
-      }
 
-      // Also match text-format image lines: "Image: URL", "Thumbnail: URL", etc.
+      // Image from markdown embed
+      const imgMatch = line.match(/!\[[^\]]*\]\((https?:\/\/[^)]+)\)/i);
+      if (imgMatch) currentProduct.image = imgMatch[1].trim();
+
+      // Image from text label
       const imgTextMatch = line.match(/(?:Image|Thumbnail|Photo|Img|Picture)(?:\*\*?)*:\s*(?:\*\*?)*(https?:\/\/[^\s*)]+)/i);
-      if (imgTextMatch) {
-        currentProduct.image = imgTextMatch[1].trim();
-      }
-      
-      // Match URL, making sure it's not an image link by avoiding the leading "!"
+      if (imgTextMatch) currentProduct.image = imgTextMatch[1].trim();
+
+      // URL
       const urlMatch = line.match(/(?:^|[^!])\[[^\]]+\]\((https?:\/\/[^)]+)\)/i);
       if (urlMatch) {
         currentProduct.url = urlMatch[1].trim();
       } else if (!line.includes('![') && !currentProduct.url) {
         const fallbackUrlMatch = line.match(/\((https?:\/\/[^)]+)\)/i);
-        if (fallbackUrlMatch) {
-          currentProduct.url = fallbackUrlMatch[1].trim();
-        }
+        if (fallbackUrlMatch) currentProduct.url = fallbackUrlMatch[1].trim();
       }
     }
   }
-  
-  if (currentProduct) {
-    if (currentProduct.url && !currentProduct.product_id) {
-      const idFromUrl = currentProduct.url.match(/\/kid\/([^/]+)/i) || currentProduct.url.match(/\/([^/]+)$/);
-      if (idFromUrl) {
-        currentProduct.product_id = idFromUrl[1].toUpperCase();
-      }
-    }
-    products.push(currentProduct);
-  }
-  
+
+  saveCurrentProduct();
+
   return products.map(p => {
-    if (!p.image || p.image === 'https://via.placeholder.com/150') {
-      // Try to derive image from Kapruka CDN using the product URL
+    if (!p.image || p.image === FALLBACK_IMAGE) {
       if (p.url) {
         const kaprukaIdMatch = p.url.match(/kapruka\.com\/[^/]+\/([A-Za-z0-9_-]+)\/?$/) ||
                                p.url.match(/kapruka\.com\/kid\/([A-Za-z0-9_-]+)/i);
@@ -345,32 +436,48 @@ function parseProductsFromMarkdown(mdText) {
           p.image = `https://www.kapruka.com/spicific/${pid}/0_${pid}.jpg`;
         }
       }
-      // If still no real image, fall back to Unsplash category images
-      if (!p.image || p.image === 'https://via.placeholder.com/150') {
-        const lowerTitle = p.title.toLowerCase();
-        if (lowerTitle.includes('cake') || (p.product_id && p.product_id.toUpperCase().startsWith('CAKE'))) {
-          p.image = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500&auto=format&fit=crop&q=60';
-        } else if (lowerTitle.includes('flower') || lowerTitle.includes('rose') || (p.product_id && p.product_id.toUpperCase().startsWith('FLOWER'))) {
-          p.image = 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=500&auto=format&fit=crop&q=60';
-        } else if (lowerTitle.includes('chocolate') || lowerTitle.includes('choco')) {
-          p.image = 'https://images.unsplash.com/photo-1548907040-4d42b52145ea?w=500&auto=format&fit=crop&q=60';
-        } else if (lowerTitle.includes('toy') || lowerTitle.includes('teddy')) {
-          p.image = 'https://images.unsplash.com/photo-1559251606-c623743a6d76?w=500&auto=format&fit=crop&q=60';
-        } else if (lowerTitle.includes('hamper') || lowerTitle.includes('gift')) {
-          p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
-        } else {
-          p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
-        }
+      if (!p.image || p.image === FALLBACK_IMAGE) {
+        const lt = p.title.toLowerCase();
+        if (lt.includes('cake')) p.image = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500&auto=format&fit=crop&q=60';
+        else if (lt.includes('flower') || lt.includes('rose')) p.image = 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=500&auto=format&fit=crop&q=60';
+        else if (lt.includes('chocolate') || lt.includes('ferrero') || lt.includes('choco')) p.image = 'https://images.unsplash.com/photo-1548907040-4d42b52145ea?w=500&auto=format&fit=crop&q=60';
+        else if (lt.includes('toy') || lt.includes('teddy')) p.image = 'https://images.unsplash.com/photo-1559251606-c623743a6d76?w=500&auto=format&fit=crop&q=60';
+        else p.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60';
       }
     }
     return p;
   });
 }
 
+// Normalize price from a product object with potentially different field names
+const normalizeProductPrice = (p) => {
+  if (!p || typeof p !== 'object') return p;
+  const rawPrice = p.price || p.price_lkr || p.selling_price || p.cost || 
+                   p.amount || p.LKR || p.lkr_price || p.unit_price;
+  let normalizedPrice = null;
+  if (typeof rawPrice === 'number' && rawPrice > 0) {
+    normalizedPrice = `LKR ${rawPrice.toLocaleString()}`;
+  } else if (typeof rawPrice === 'string' && rawPrice.trim()) {
+    // Already a string like "LKR 3,500" — but only if it's a REAL price (not the hardcoded 3500)
+    // We can't know if it's real or hardcoded here, so just pass through
+    normalizedPrice = rawPrice;
+  }
+  return {
+    ...p,
+    title: p.title || p.name || p.product_name || '',
+    price: normalizedPrice,
+    in_stock: p.in_stock !== undefined ? p.in_stock : true,
+    image: p.image || p.image_url || p.thumbnail || p.photo || FALLBACK_IMAGE,
+    url: p.url || p.product_url || p.link || '',
+    product_id: p.product_id || p.id || ''
+  };
+};
+
 const normalizeProducts = (data) => {
   if (!data) return [];
-  if (Array.isArray(data)) return data;
-  if (data.products && Array.isArray(data.products) && data.products.length > 0) return data.products;
+  if (Array.isArray(data)) return data.map(normalizeProductPrice);
+  if (data.products && Array.isArray(data.products) && data.products.length > 0) return data.products.map(normalizeProductPrice);
+  if (data.items && Array.isArray(data.items)) return data.items.map(normalizeProductPrice);
   if (data.result && typeof data.result === 'string') {
     return parseProductsFromMarkdown(data.result);
   }
@@ -379,15 +486,16 @@ const normalizeProducts = (data) => {
   }
   if (typeof data === 'object') {
     if (data.product_id || data.id) {
-      return [data];
+      return [normalizeProductPrice(data)];
     }
     for (const key in data) {
       if (Array.isArray(data[key])) {
-        return data[key];
+        return data[key].map(normalizeProductPrice);
       }
     }
   }
   return [];
+
 };
 
 // Clean raw markdown product lists from conversational text if cards are rendered
@@ -399,28 +507,42 @@ const cleanChatText = (text) => {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) {
-      cleanedLines.push(lines[i]);
+      cleanedLines.push('');
       continue;
     }
     
-    // Detect product details lines
-    const isProductTitle = line.match(/^\*?\s*\*\*([^*]+)\*\*/) || line.match(/^\d+\.\s*\*\*([^*]+)\*\*/);
-    const isId = line.includes('ID:') || line.match(/ID:\s*`([^`]+)`/i) || line.match(/ID:\s*(\w+)/i);
-    const isPrice = line.includes('LKR') || line.includes('Price:') || line.match(/LKR\s*([\d,]+)/i);
+    // Skip pure product detail lines
+    const isId = line.includes('ID:') || line.match(/ID:\s*`([^`]+)`/i);
+    const isPrice = line.match(/^[-*•]?\s*(?:LKR|Price:|Cost:)/i) || line.match(/^LKR\s*[\d,]+/i);
     const isUrl = line.includes('View product') || line.includes('buyonline') || line.match(/\[View product\]\(([^)]+)\)/i);
-    const isStockStatus = line.toLowerCase().includes('in stock') || line.toLowerCase().includes('out of stock') || line.toLowerCase().includes('ships internationally') || line.includes('·');
-    const isDescription = line.toLowerCase().includes('description:') || line.match(/description/i);
+    const isStockStatus = line.toLowerCase().includes('in stock') || line.toLowerCase().includes('out of stock') || line.toLowerCase().includes('ships internationally');
+    const isTableRow = line.startsWith('|') && line.endsWith('|');
+    const isTableSeparator = line.match(/^\|[-| :]+\|$/);
     
-    if (isProductTitle || isId || isPrice || isUrl || isStockStatus || isDescription) {
-      continue; // Skip this line
+    if (isId || isPrice || isUrl || isStockStatus || isTableRow || isTableSeparator) {
+      continue;
     }
     
-    cleanedLines.push(lines[i]);
+    // Clean markdown formatting from the line itself
+    let cleaned = line;
+    // Remove ## headings
+    cleaned = cleaned.replace(/^#{1,6}\s+/, '');
+    // Remove **bold** and *italic*
+    cleaned = cleaned.replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1');
+    // Remove leading bullet/dash
+    cleaned = cleaned.replace(/^[-*•]\s+/, '');
+    // Remove backtick code
+    cleaned = cleaned.replace(/`([^`]+)`/g, '$1');
+    
+    if (cleaned.trim()) {
+      cleanedLines.push(cleaned);
+    }
   }
   
-  // Join back and collapse multiple empty lines
+  // Join and collapse multiple empty lines into one
   return cleanedLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 };
+
 
 
 // Countdown component starting from 60 minutes
@@ -472,9 +594,11 @@ function ProductCard({ product, onAddToCart, language = 'en' }) {
   const [added, setAdded] = React.useState(false);
   const id = product.product_id || product.id;
   const title = product.title || product.name || 'Kapruka Gift';
-  const price = product.price || 'LKR 3,500';
-  const img = product.image || product.image_url || 'https://via.placeholder.com/150';
+  const rawPrice = product.price || product.price_lkr;
+  const price = rawPrice && rawPrice !== 'null' ? rawPrice : null;
+  const img = product.image || product.image_url || FALLBACK_IMAGE;
   const isStock = product.stock !== false && product.in_stock !== false;
+
 
   const handleAdd = () => {
     onAddToCart(product);
@@ -490,6 +614,7 @@ function ProductCard({ product, onAddToCart, language = 'en' }) {
         <img 
           src={img} 
           alt={title}
+          onError={e => { e.target.onerror = null; e.target.src = FALLBACK_IMAGE; }}
           className="w-full h-full object-cover transition duration-500"
         />
         <span className={`absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded font-bold ${
@@ -504,9 +629,15 @@ function ProductCard({ product, onAddToCart, language = 'en' }) {
           <h4 className="font-semibold text-slate-100 text-xs line-clamp-2 hover:text-kapruka-yellow transition min-h-[2rem]">
             {title}
           </h4>
-          <p className="text-kapruka-yellow font-bold text-xs mt-1 font-outfit">
-            {typeof price === 'number' ? `LKR ${price.toLocaleString()}` : price}
-          </p>
+          {price ? (
+            <p className="text-kapruka-yellow font-bold text-xs mt-1 font-outfit">
+              {typeof price === 'number' ? `LKR ${price.toLocaleString()}` : price}
+            </p>
+          ) : (
+            <a href={product.url || `https://www.kapruka.com/search?q=${encodeURIComponent(title)}`} target="_blank" rel="noopener noreferrer" className="text-kapruka-purple-light text-[10px] mt-1 underline">
+              See price on Kapruka →
+            </a>
+          )}
         </div>
         
         <div className="flex flex-col gap-2 w-full">
@@ -549,7 +680,87 @@ export default function App() {
   // Connection and API health state
   const [apiStatus, setApiStatus] = useState({ connected: false, checking: true });
   const [rateLimitError, setRateLimitError] = useState(false);
-  
+
+  // Feature 1: Dark/Light mode toggle
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  // Feature 3: Past chats state
+  const [pastChats, setPastChats] = useState([]);
+
+  // Load past chats from localStorage on mount
+  useEffect(() => {
+    const loadPastChats = () => {
+      const chats = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('kapruka_chat_')) {
+          try {
+            const msgs = JSON.parse(localStorage.getItem(key));
+            const timestamp = parseInt(key.replace('kapruka_chat_', ''), 10);
+            const firstUserMsg = Array.isArray(msgs) ? msgs.find(m => m.sender === 'user') : null;
+            chats.push({
+              key,
+              timestamp,
+              preview: firstUserMsg ? firstUserMsg.text : 'Chat session',
+              messages: msgs
+            });
+          } catch (e) {
+            // skip malformed entries
+          }
+        }
+      }
+      chats.sort((a, b) => b.timestamp - a.timestamp);
+      setPastChats(chats.slice(0, 5));
+    };
+    loadPastChats();
+  }, []);
+
+  const [currentChatId, setCurrentChatId] = useState(() => Date.now().toString());
+
+  // Feature 2: New Chat handler — save current messages, reset state
+  const handleNewChat = () => {
+    if (messages.length > 1) {
+      localStorage.setItem('kapruka_chat_' + currentChatId, JSON.stringify(messages));
+    }
+    const newId = Date.now().toString();
+    setCurrentChatId(newId);
+    setMessages([{ id: 1, role: 'assistant', sender: 'agent', text: translations[language].welcomeMessage, products: [], timestamp: new Date() }]);
+    setCart([]);
+    setCheckoutStep(null);
+    // Reload past chats list
+    const chats = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('kapruka_chat_')) {
+        try {
+          const msgs = JSON.parse(localStorage.getItem(key));
+          const timestamp = parseInt(key.replace('kapruka_chat_', ''), 10);
+          const firstUserMsg = Array.isArray(msgs) ? msgs.find(m => m.sender === 'user') : null;
+          chats.push({ key, timestamp, preview: firstUserMsg ? firstUserMsg.text : 'Chat session', messages: msgs });
+        } catch (e) {}
+      }
+    }
+    chats.sort((a, b) => b.timestamp - a.timestamp);
+    setPastChats(chats.slice(0, 5));
+  };
+
+  // Feature 3: Load a past chat
+  const handleLoadPastChat = (chat) => {
+    if (messages.length > 1) {
+      localStorage.setItem('kapruka_chat_' + currentChatId, JSON.stringify(messages));
+    }
+    setCurrentChatId(chat.key.replace('kapruka_chat_', ''));
+    setMessages(chat.messages);
+    setCart([]);
+    setCheckoutStep(null);
+  };
+
+  // Feature 3: Delete a past chat
+  const handleDeletePastChat = (key) => {
+    localStorage.removeItem(key);
+    setPastChats(prev => prev.filter(c => c.key !== key));
+  };
+
   // Chat state
   const [language, setLanguage] = useState('en'); // en, si, tanglish
   const [messages, setMessages] = useState([
@@ -594,6 +805,39 @@ export default function App() {
   // Cart state
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(true);
+  const [cityConfirmed, setCityConfirmed] = useState(false);
+  const [isOtherCity, setIsOtherCity] = useState(false);
+  const [dateError, setDateError] = useState(null);
+
+  const validateDeliveryDate = (val) => {
+    if (!val) {
+      setDateError(null);
+      return;
+    }
+    const selected = new Date(val);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const minDate = new Date();
+    minDate.setDate(today.getDate() + 1);
+    minDate.setHours(0, 0, 0, 0);
+
+    const maxDate = new Date();
+    maxDate.setDate(today.getDate() + 90);
+    maxDate.setHours(0, 0, 0, 0);
+
+    if (selected < minDate) {
+      setDateError(language === 'si' 
+        ? '⚠️ බෙදා හැරීමේ දිනය හෙට හෝ ඉන් පසුව විය යුතුය.' 
+        : '⚠️ Delivery date must be tomorrow or later.');
+    } else if (selected > maxDate) {
+      setDateError(language === 'si' 
+        ? '⚠️ බෙදා හැරීමේ දිනය දින 90කට වඩා වැඩි විය නොහැක.' 
+        : '⚠️ Delivery date cannot be more than 90 days from today.');
+    } else {
+      setDateError(null);
+    }
+  };
 
   // Delivery / Checkout state
   const [cityQuery, setCityQuery] = useState('');
@@ -727,11 +971,8 @@ export default function App() {
         timestamp: new Date()
       } : m));
 
-      // Sync visual product search panel if products were returned
-      const normProds = normalizeProducts(data);
-      if (normProds && normProds.length > 0) {
-        setSearchResults(normProds);
-      }
+      // NOTE: Do NOT sync searchResults here — chat inline cards are sufficient.
+      // Only handleSearchCatalog (sidebar direct search) should update searchResults.
     } catch (err) {
       const elapsed = Date.now() - startTime;
       const remaining = Math.max(0, 500 - elapsed);
@@ -810,11 +1051,6 @@ export default function App() {
         products: normalizeProducts(data),
         timestamp: new Date()
       } : m));
-
-      const normProds = normalizeProducts(data);
-      if (normProds && normProds.length > 0) {
-        setSearchResults(normProds);
-      }
     } catch (err) {
       const elapsed = Date.now() - startTime;
       const remaining = Math.max(0, 500 - elapsed);
@@ -874,12 +1110,34 @@ export default function App() {
   // Add to Shopping Cart
   const addToCart = (product) => {
     setCart(prev => {
-      const existing = prev.find(item => item.product_id === product.product_id || item.id === product.id);
-      const id = product.product_id || product.id;
+      const pId = product.product_id || product.id;
+      const pTitle = product.title || product.name;
+      
+      const hasValidId = (id) => id && String(id).trim() !== '';
+
+      const existing = prev.find(item => {
+        const itemId = item.product_id || item.id;
+        const itemTitle = item.title || item.name;
+        
+        if (hasValidId(pId) && hasValidId(itemId)) {
+          return String(itemId) === String(pId);
+        }
+        return itemTitle === pTitle;
+      });
+
+      const finalId = hasValidId(pId) ? pId : `gen_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
       if (existing) {
-        return prev.map(item => (item.product_id === id || item.id === id) ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map(item => {
+          const itemId = item.product_id || item.id;
+          const itemTitle = item.title || item.name;
+          const match = (hasValidId(pId) && hasValidId(itemId))
+            ? String(itemId) === String(pId)
+            : itemTitle === pTitle;
+          return match ? { ...item, quantity: item.quantity + 1 } : item;
+        });
       }
-      return [...prev, { ...product, product_id: id, quantity: 1 }];
+      return [...prev, { ...product, product_id: finalId, id: finalId, quantity: 1 }];
     });
   };
 
@@ -938,7 +1196,7 @@ export default function App() {
     setSenderPhone(val);
     const permissivePhoneRegex = /^[0-9+\-\s()]{7,15}$/;
     if (!val) {
-      setSenderPhoneError(language === 'si' ? 'දුරකථන අංකය අවශ්‍යයි' : 'Phone number is required');
+      setSenderPhoneError('');
     } else if (!permissivePhoneRegex.test(val)) {
       setSenderPhoneError(language === 'si' ? 'වලංගු නොවන ආකෘතියකි' : 'Invalid phone format');
     } else {
@@ -951,8 +1209,8 @@ export default function App() {
     setSenderEmail(val);
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!val) {
-      setSenderEmailError(language === 'si' ? 'විද්‍යුත් තැපෑල අවශ්‍යයි' : 'Email is required');
-    } else if (val.length > 0 && !val.includes('@')) {
+      setSenderEmailError('');
+    } else if (val.length > 0 && !emailRegex.test(val)) {
       setSenderEmailError(language === 'si' ? 'වලංගු නොවන විද්‍යුත් තැපෑලකි' : 'Invalid email format');
     } else {
       setSenderEmailError('');
@@ -991,17 +1249,47 @@ export default function App() {
             return;
           }
           
-          // Parse flat rate
-          const match = resultText.match(/LKR\s*([\d,]+)/i) || resultText.match(/rate\s*([\d,]+)/i);
-          if (match) {
-            const fee = parseFloat(match[1].replace(/,/g, ''));
-            setDeliveryFee(fee);
-          } else if (typeof data.fee === 'number') {
-            setDeliveryFee(data.fee);
-          } else if (typeof data.delivery_fee === 'number') {
-            setDeliveryFee(data.delivery_fee);
-          } else {
-            setDeliveryFee(350); // fallback LKR
+          // Log raw response for debugging
+          console.log('[DeliveryFee] Full response from server:', data);
+
+          // PRIORITY 1: Use server-extracted fee (most reliable)
+          if (typeof data.extracted_fee === 'number' && data.extracted_fee > 0) {
+            console.log('[DeliveryFee] Using server extracted_fee:', data.extracted_fee);
+            setDeliveryFee(data.extracted_fee);
+            return;
+          }
+
+          // PRIORITY 2: Direct numeric fields
+          const directFee = data.fee ?? data.delivery_fee ?? data.rate ?? 
+                            data.delivery?.fee ?? data.delivery?.rate;
+          if (typeof directFee === 'number' && directFee > 0) {
+            console.log('[DeliveryFee] Using direct field fee:', directFee);
+            setDeliveryFee(directFee);
+            return;
+          }
+
+          // PRIORITY 3: Parse from text — only look for delivery-specific patterns
+          const feePatterns = [
+            /delivery\s*(?:fee|charge|cost|rate)\s*[:\-]?\s*(?:lkr|rs\.?)?\s*([\d,]+)/i,
+            /(?:fee|charge)\s*[:\-]\s*(?:lkr|rs\.?)?\s*([\d,]+)/i,
+            /(?:lkr|rs\.?)\s*([\d,]+)/i,
+          ];
+          let found = false;
+          for (const pattern of feePatterns) {
+            const m = resultText.match(pattern);
+            if (m) {
+              const parsed = parseFloat(m[1].replace(/,/g, ''));
+              if (parsed > 0 && parsed < 50000) {
+                console.log('[DeliveryFee] Parsed from text:', parsed);
+                setDeliveryFee(parsed);
+                found = true;
+                break;
+              }
+            }
+          }
+          if (!found) {
+            console.warn('[DeliveryFee] Could not determine fee — showing null.');
+            setDeliveryFee(null);
           }
         } else {
           const err = await res.json().catch(() => ({}));
@@ -1067,16 +1355,44 @@ export default function App() {
       
       const data = await res.json();
       
+      const md = data.result || data.text || '';
+      let parsedOrderNumber = data.order_number || data.order_ref || data.orderId;
+      if (!parsedOrderNumber && md) {
+        const orderMatch = md.match(/ORD-[A-Z0-9-]+/i);
+        if (orderMatch) {
+          parsedOrderNumber = orderMatch[0];
+        }
+      }
+      if (!parsedOrderNumber) {
+        parsedOrderNumber = 'ORD-' + Math.floor(Math.random()*90000 + 10000);
+      }
+
+      let parsedCheckoutUrl = data.checkout_url || data.pay_link || data.payment_url;
+      if (!parsedCheckoutUrl && md) {
+        // Broad regex: catch any markdown link pointing to kapruka.com
+        const urlMatch = md.match(/\[([^\]]+)\]\((https?:\/\/(?:www\.)?kapruka\.com[^)]+)\)/i);
+        if (urlMatch) {
+          parsedCheckoutUrl = urlMatch[2].trim();
+        } else {
+          // Fallback: bare kapruka.com URL in text
+          const bareMatch = md.match(/(https?:\/\/(?:www\.)?kapruka\.com\/[^\s<)]+)/i);
+          if (bareMatch) parsedCheckoutUrl = bareMatch[1].trim();
+        }
+      }
+      if (!parsedCheckoutUrl) {
+        parsedCheckoutUrl = 'https://www.kapruka.com/checkout'; // fallback
+      }
+
       // Clear cart on successful order placement and set order confirmation details
       setConfirmedOrder({
-        order_number: data.order_number || data.order_ref || data.orderId || 'ORD-' + Math.floor(Math.random()*90000 + 10000),
-        checkout_url: data.checkout_url || data.pay_link || data.payment_url || 'https://www.kapruka.com/payment',
+        order_number: parsedOrderNumber,
+        checkout_url: parsedCheckoutUrl, // may be null — UI handles gracefully
         total: total
       });
       setCart([]);
       setCheckoutStep(4);
     } catch (err) {
-      alert(`Order placement failed: ${err.message}`);
+      setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', sender: 'agent', text: '⚠️ Order placement failed.', products: [], timestamp: new Date() }]);
     } finally {
       setIsCheckingDelivery(false);
     }
@@ -1090,10 +1406,10 @@ export default function App() {
   const total = subtotal + (deliveryFee || 0);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-950 font-sans">
+    <div className={`flex h-screen w-screen overflow-hidden bg-slate-950 font-sans${isDarkMode ? '' : ' light-mode'}`}>
       
       {/* 1. SIDEBAR: Quick Discovery & Health checks */}
-      <div className="hidden md:flex flex-col w-80 bg-slate-900 border-r border-slate-800 text-slate-200">
+      <div className="kapruka-sidebar hidden md:flex flex-col w-80 bg-slate-900 border-r border-slate-800 text-slate-200">
         
         {/* Brand Logo Header */}
         <div className="p-6 border-b border-slate-800 flex items-center justify-between">
@@ -1109,6 +1425,49 @@ export default function App() {
             </div>
           </div>
         </div>
+
+        {/* Feature 2: New Chat Button */}
+        <div className="px-4 py-3 border-b border-slate-800">
+          <button
+            id="new-chat-btn"
+            onClick={handleNewChat}
+            className="w-full flex items-center justify-center gap-2 bg-kapruka-purple/20 hover:bg-kapruka-purple/40 text-slate-300 hover:text-white border border-kapruka-purple/30 hover:border-kapruka-purple text-xs font-semibold py-2 px-3 rounded-lg transition-all duration-200"
+            title="Start a new chat and save current one"
+          >
+            <span className="text-base leading-none">➕</span> New Chat
+          </button>
+        </div>
+
+        {/* Feature 3: Past Chats Section */}
+        {pastChats.length > 0 && (
+          <div className="px-4 py-3 border-b border-slate-800 space-y-2">
+            <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Past Chats</h3>
+            <div className="space-y-1">
+              {pastChats.map((chat) => (
+                <div key={chat.key} className="flex items-center gap-1 group">
+                  <button
+                    onClick={() => handleLoadPastChat(chat)}
+                    className="flex-1 text-left text-[11px] text-slate-300 hover:text-white bg-slate-800/40 hover:bg-slate-800 px-2.5 py-1.5 rounded-lg transition-all duration-150 truncate"
+                    title={chat.preview}
+                  >
+                    <span className="block text-[9px] text-slate-500 mb-0.5">
+                      {new Date(chat.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span className="truncate block">{chat.preview.length > 40 ? chat.preview.slice(0, 40) + '…' : chat.preview}</span>
+                  </button>
+                  <button
+                    onClick={() => handleDeletePastChat(chat.key)}
+                    className="shrink-0 p-1 text-slate-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all duration-150"
+                    title="Delete this chat"
+                    aria-label="Delete past chat"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* API Connection Health indicator */}
         <div className="px-6 py-3 bg-slate-900/40 border-b border-slate-800 flex items-center justify-between text-xs">
@@ -1132,7 +1491,7 @@ export default function App() {
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           
           {/* Catalog Search Panel */}
-          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
+          <div className="sidebar-section bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
             <h2 className="text-sm font-semibold font-outfit text-white flex items-center gap-2">
               <Search className="w-4 h-4 text-kapruka-yellow" /> {translations[language].directCatalogQuery}
             </h2>
@@ -1162,7 +1521,7 @@ export default function App() {
                 <button
                   key={idx}
                   onClick={() => handleChipClick(chip.query)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700/60 transition duration-150 flex items-center gap-1"
+                  className="category-chip bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700/60 transition duration-150 flex items-center gap-1"
                 >
                   {chip.label}
                 </button>
@@ -1171,7 +1530,7 @@ export default function App() {
           </div>
 
           {/* Order Tracker Summary */}
-          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
+          <div className="sidebar-section bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
             <h2 className="text-sm font-semibold font-outfit text-white flex items-center gap-2">
               <Truck className="w-4 h-4 text-kapruka-yellow" /> {translations[language].liveOrderTracker}
             </h2>
@@ -1268,7 +1627,7 @@ export default function App() {
         <div className="premium-glow-bg" />
 
         {/* Main UI Header with Bilingual Selector Toggle */}
-        <div className="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-6 py-4 flex items-center justify-between shrink-0 z-10">
+        <div className="kapruka-header bg-slate-900/90 backdrop-blur border-b border-slate-800 px-6 py-4 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-kapruka-yellow animate-pulse" />
             <span className="text-sm font-bold font-outfit text-white tracking-wide">
@@ -1276,27 +1635,40 @@ export default function App() {
             </span>
           </div>
           
-          {/* Language Toggle Selector */}
-          <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800/80 gap-0.5">
+          {/* Language Toggle Selector + Dark/Light Mode Toggle */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800/80 gap-0.5">
+              <button
+                onClick={() => setLanguage('en')}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold font-outfit transition-all duration-150 ${
+                  language === 'en'
+                    ? 'bg-kapruka-purple text-kapruka-yellow shadow-md shadow-kapruka-purple/30 border border-kapruka-purple-light/20'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                English
+              </button>
+              <button
+                onClick={() => setLanguage('si')}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all duration-150 ${
+                  language === 'si'
+                    ? 'bg-kapruka-purple text-kapruka-yellow shadow-md shadow-kapruka-purple/30 border border-kapruka-purple-light/20'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                සිංහල
+              </button>
+            </div>
+
+            {/* Feature 1: Dark/Light Mode Toggle */}
             <button
-              onClick={() => setLanguage('en')}
-              className={`px-2.5 py-1 rounded-md text-[10px] font-bold font-outfit transition-all duration-150 ${
-                language === 'en'
-                  ? 'bg-kapruka-purple text-kapruka-yellow shadow-md shadow-kapruka-purple/30 border border-kapruka-purple-light/20'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+              id="dark-mode-toggle"
+              onClick={() => setIsDarkMode(prev => !prev)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white transition-all duration-200 text-base"
+              title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle dark/light mode"
             >
-              English
-            </button>
-            <button
-              onClick={() => setLanguage('si')}
-              className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all duration-150 ${
-                language === 'si'
-                  ? 'bg-kapruka-purple text-kapruka-yellow shadow-md shadow-kapruka-purple/30 border border-kapruka-purple-light/20'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              සිංහල
+              {isDarkMode ? '☀️' : '🌙'}
             </button>
           </div>
         </div>
@@ -1357,8 +1729,8 @@ export default function App() {
                 <div className="flex-1 max-w-[85%] space-y-2">
                   <div className={`rounded-2xl p-4 text-sm leading-relaxed ${
                     msg.sender === 'user' 
-                      ? 'bg-kapruka-purple text-white rounded-br-none border border-kapruka-purple-light'
-                      : 'bg-slate-900/90 text-slate-200 rounded-bl-none border border-slate-800'
+                      ? 'chat-bubble-user bg-kapruka-purple text-white rounded-br-none border border-kapruka-purple-light'
+                      : 'chat-bubble-ai bg-slate-900/90 text-slate-200 rounded-bl-none border border-slate-800'
                   }`}>
                     {msg.isPlaceholder ? (
                       <div className="flex items-center gap-1.5 py-1 px-1">
@@ -1389,7 +1761,7 @@ export default function App() {
                   {/* Inline rich visual product cards */}
                   {msg.products && msg.products.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2 max-w-xl">
-                      {msg.products.map((product) => (
+                      {msg.products.slice(0, 6).map((product) => (
                         <ProductCard 
                           key={product.product_id || product.id} 
                           product={product} 
@@ -1421,7 +1793,7 @@ export default function App() {
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {searchResults.map((product) => (
+                {searchResults.slice(0, 6).map((product) => (
                   <ProductCard 
                     key={product.product_id || product.id} 
                     product={product} 
@@ -1459,7 +1831,7 @@ export default function App() {
 
       {/* 3. CART DRAWER: Visual Shopping Cart & Delivery Checkout Form */}
       {isCartOpen && (
-        <div className="absolute inset-y-0 right-0 z-50 w-full sm:w-96 md:relative md:w-96 bg-slate-900 border-l border-slate-850 flex flex-col h-full text-slate-200">
+        <div className="kapruka-cart absolute inset-y-0 right-0 z-50 w-full sm:w-96 md:relative md:w-96 bg-slate-900 border-l border-slate-850 flex flex-col h-full text-slate-200">
           
           {/* CART DRAWER CONTENT */}
           {checkoutStep === null ? (
@@ -1508,14 +1880,15 @@ export default function App() {
                     {cart.map((item) => {
                       const id = item.product_id || item.id;
                       const title = item.title || item.name || 'Kapruka Gift';
-                      const price = item.price || 'LKR 3,500';
-                      const numPrice = typeof price === 'number' ? price : parseFloat(String(price).replace(/[^0-9.]/g, '')) || 0;
+                      const rawPrice = item.price || item.price_lkr;
+                      const numPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice || '0').replace(/[^0-9.]/g, '')) || 0;
+
 
                       return (
                         <div key={id} className="bg-slate-950/60 p-3 rounded-xl border border-slate-850 flex gap-3 items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="w-12 h-12 bg-slate-900 rounded-lg overflow-hidden shrink-0">
-                              <img src={item.image || item.image_url || 'https://via.placeholder.com/50'} alt={title} className="w-full h-full object-cover" />
+                              <img src={item.image || item.image_url || FALLBACK_IMAGE} alt={title} onError={e => { e.target.onerror = null; e.target.src = FALLBACK_IMAGE; }} className="w-full h-full object-cover" />
                             </div>
                             <div>
                               <h4 className="text-xs font-bold text-white line-clamp-1">{title}</h4>
@@ -1655,32 +2028,82 @@ export default function App() {
                       />
                     </div>
 
-                    <div className="space-y-1 relative">
-                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].city}</label>
-                      <input 
-                        type="text" 
-                        placeholder="Type city (e.g. Colombo, Galle)"
-                        value={cityQuery}
-                        onChange={e => setCityQuery(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
-                      />
-                      {cities.length > 0 && (
-                        <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-800 rounded-lg shadow-xl overflow-hidden max-h-40 overflow-y-auto">
-                          {cities.map((city, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => {
-                                setSelectedCity(city);
-                                setCityQuery(city);
-                                setCities([]);
-                              }}
-                              className="w-full text-left px-3 py-2 text-[11px] text-slate-300 hover:bg-kapruka-purple/20 hover:text-kapruka-yellow border-b border-slate-850"
-                            >
-                              {city}
-                            </button>
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{translations[language].city}</label>
+                        <select 
+                          value={isOtherCity ? "other" : (selectedCity || '')}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === "other") {
+                              setIsOtherCity(true);
+                              setSelectedCity('');
+                              setCityQuery('');
+                              setCityConfirmed(false);
+                            } else {
+                              setIsOtherCity(false);
+                              setSelectedCity(val);
+                              setCityQuery(val);
+                              setCityConfirmed(val !== '');
+                            }
+                          }}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                        >
+                          <option value="">{language === 'si' ? '-- නගරය තෝරන්න --' : '-- Select City --'}</option>
+                          {POPULAR_CITIES.map((c, idx) => (
+                            <option key={idx} value={c}>{c}</option>
                           ))}
+                          <option value="other">{language === 'si' ? 'වෙනත් නගරයක් සොයන්න...' : 'Search other city...'}</option>
+                        </select>
+                      </div>
+
+                      {isOtherCity && (
+                        <div className="space-y-1 relative animate-fade-in">
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                            {language === 'si' ? 'නගරය සොයන්න' : 'Search City'}
+                          </label>
+                          <input 
+                            type="text" 
+                            placeholder={language === 'si' ? 'නම ටයිප් කරන්න (උදා: Colombo)' : 'Type city name...'}
+                            value={cityQuery}
+                            onChange={e => { 
+                              const val = e.target.value;
+                              setCityQuery(val); 
+                              setCityConfirmed(false);
+                            }}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                          />
+                          {cities.length > 0 && (
+                            <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-800 rounded-lg shadow-xl overflow-hidden max-h-40 overflow-y-auto">
+                              {cities.map((city, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCity(city);
+                                    setCityQuery(city);
+                                    setCities([]);
+                                    setCityConfirmed(true);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-[11px] text-slate-300 hover:bg-kapruka-purple/20 hover:text-kapruka-yellow border-b border-slate-850"
+                                >
+                                  {city}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {!cityConfirmed && cityQuery.length >= 2 && (
+                            <p className="text-[9px] text-amber-400 font-semibold mt-1">
+                              ⚠️ {language === 'si' ? 'කරුණාකර පහළින් ඇති යෝජනාවලින් එකක් තෝරන්න.' : 'Please click one of the suggestions below to confirm.'}
+                            </p>
+                          )}
                         </div>
+                      )}
+
+                      {!cityConfirmed && (
+                        <p className="text-[10px] text-rose-400 font-semibold">
+                          ⚠️ {language === 'si' ? 'කරුණාකර වලංගු නගරයක් තෝරන්න.' : 'Please select a valid city from the list.'}
+                        </p>
                       )}
                     </div>
 
@@ -1708,14 +2131,41 @@ export default function App() {
                         {translations[language].deliveryDate}
                         <span className="ml-1 font-normal text-slate-500 normal-case">(tomorrow – 90 days)</span>
                       </label>
-                      <input 
-                        type="date" 
-                        min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })()}
-                        max={(() => { const d = new Date(); d.setDate(d.getDate() + 90); return d.toISOString().split('T')[0]; })()}
-                        value={deliveryDate}
-                        onChange={e => setDeliveryDate(formatDateToYYYYMMDD(e.target.value))}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
-                      />
+                      <div className="relative">
+                        <input 
+                          type="date" 
+                          min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })()}
+                          max={(() => { const d = new Date(); d.setDate(d.getDate() + 90); return d.toISOString().split('T')[0]; })()}
+                          value={deliveryDate}
+                          onChange={e => {
+                            const val = formatDateToYYYYMMDD(e.target.value);
+                            setDeliveryDate(val);
+                            validateDeliveryDate(val);
+                          }}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-kapruka-purple"
+                        />
+                      </div>
+                      
+                      {deliveryDate && !dateError && (
+                        <p className="text-[11px] text-emerald-400 font-medium mt-1 flex items-center gap-1">
+                          <span>📅</span>
+                          <span>
+                            {language === 'si' ? 'තෝරාගත් දිනය: ' : 'Selected: '}
+                            {new Date(deliveryDate).toLocaleDateString(language === 'si' ? 'si-LK' : 'en-US', { 
+                              weekday: 'long', 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
+                          </span>
+                        </p>
+                      )}
+
+                      {dateError && (
+                        <p className="text-[10px] text-rose-400 font-semibold mt-1">
+                          {dateError}
+                        </p>
+                      )}
                     </div>
 
                     {isCheckingDelivery && (
@@ -1846,6 +2296,18 @@ export default function App() {
                         <span>{translations[language].totalPay}</span>
                         <span className="text-kapruka-yellow">LKR {total.toLocaleString()}</span>
                       </div>
+                      
+                      {/* Notice about shipping rate differences */}
+                      <div className="text-[10px] text-slate-400 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80 mt-3 italic leading-normal flex items-start gap-1">
+                        <span>💡</span>
+                        <span>
+                          {language === 'si' 
+                            ? 'සටහන: මෙහි පෙන්වා ඇත්තේ සම්මත වාහන ගාස්තුවයි. කුඩා අයිතම සඳහා කප්රුක අවසන් ගෙවීමේ පිටුවේ මීට වඩා අඩු මුදලක් අය විය හැක.' 
+                            : language === 'tanglish' 
+                              ? 'Note: Methana thiyenne standard vehicle delivery fee eka. Kapruka final payment page eke podi items walata meeta wada adu wenna puluwan.' 
+                              : 'Note: The delivery fee listed is the standard flat vehicle quote. The final Kapruka payment page might charge a lower rate for smaller packages.'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1873,19 +2335,42 @@ export default function App() {
                         <span className="text-slate-400">{language === 'si' ? 'මුළු මුදල:' : 'Grand Total:'}</span>
                         <span className="font-bold text-kapruka-yellow">LKR {confirmedOrder.total.toLocaleString()}</span>
                       </div>
+                      <div className="border-t border-slate-850 mt-2 pt-2 space-y-1">
+                        <div className="flex justify-between text-[10px]">
+                          <span className="text-slate-500">Recipient:</span>
+                          <span className="text-slate-300">{recipientName}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px]">
+                          <span className="text-slate-500">Delivery Address:</span>
+                          <span className="text-slate-300 text-right max-w-[150px] truncate">{streetAddress}, {selectedCity}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px]">
+                          <span className="text-slate-500">Delivery Date:</span>
+                          <span className="text-slate-300">{deliveryDate}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px]">
+                          <span className="text-slate-500">Delivery Fee:</span>
+                          <span className="text-slate-300">LKR {(deliveryFee || 0).toLocaleString()}</span>
+                        </div>
+                      </div>
                     </div>
 
                     <ExpirationCountdown minutes={60} />
 
-                    <a 
-                      href={confirmedOrder.checkout_url || 'https://www.kapruka.com/checkout'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => { const url = confirmedOrder.checkout_url || 'https://www.kapruka.com/checkout'; window.open(url, '_blank'); }}
-                      className="w-full bg-kapruka-yellow hover:bg-yellow-dark text-slate-950 font-bold py-3.5 rounded-xl transition duration-200 shadow-lg text-center block text-sm animate-pulse-yellow font-outfit"
-                    >
-                      {language === 'si' ? '🛒 දැන් කප්රුකාවේ ගෙවීම් කරන්න' : language === 'tanglish' ? '🛒 Kapruka eke payment karanna' : '🛒 Complete Payment on Kapruka'}
-                    </a>
+                    {confirmedOrder.checkout_url ? (
+                      <a 
+                        href={confirmedOrder.checkout_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full bg-kapruka-yellow hover:bg-yellow-dark text-slate-950 font-bold py-3.5 rounded-xl transition duration-200 shadow-lg text-center block text-sm animate-pulse-yellow font-outfit"
+                      >
+                        {language === 'si' ? '🛒 දැන් කප්රුකාවේ ගෙවීම් කරන්න' : language === 'tanglish' ? '🛒 Kapruka eke payment karanna' : '🛒 Complete Payment on Kapruka'}
+                      </a>
+                    ) : (
+                      <p className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-center">
+                        {language === 'si' ? '✓ ඇණවුම ලබාදී ඇත! ගෙවීම සිදු කිරීමට kapruka.com වෙත පිවිසෙන්න.' : 'Order placed! Please visit kapruka.com to complete payment.'}
+                      </p>
+                    )}
 
                     <button
                       onClick={() => {
@@ -1921,13 +2406,12 @@ export default function App() {
                   {checkoutStep === 1 && (
                     <button
                       type="button"
-                      disabled={!recipientName || !recipientPhone || !!recipientPhoneError || !streetAddress || !cityQuery}
+                      disabled={!recipientName || !recipientPhone || !!recipientPhoneError || !streetAddress || !cityQuery || !cityConfirmed}
                       onClick={() => {
-                        setSelectedCity(cityQuery);
                         setCheckoutStep(2);
                       }}
                       className={`flex-1 font-bold py-2.5 rounded-xl text-xs transition duration-150 text-center ${
-                        recipientName && recipientPhone && !recipientPhoneError && streetAddress && cityQuery
+                        recipientName && recipientPhone && !recipientPhoneError && streetAddress && cityQuery && cityConfirmed
                           ? 'bg-kapruka-yellow text-slate-950 hover:bg-yellow-dark'
                           : 'bg-slate-850 text-slate-500 cursor-not-allowed border border-slate-800'
                       }`}
@@ -1939,10 +2423,10 @@ export default function App() {
                   {checkoutStep === 2 && (
                     <button
                       type="button"
-                      disabled={!deliveryDate || isCheckingDelivery}
+                      disabled={!deliveryDate || isCheckingDelivery || !!dateError}
                       onClick={() => setCheckoutStep(3)}
                       className={`flex-1 font-bold py-2.5 rounded-xl text-xs transition duration-150 text-center ${
-                        deliveryDate && !isCheckingDelivery
+                        deliveryDate && !isCheckingDelivery && !dateError
                           ? 'bg-kapruka-yellow text-slate-950 hover:bg-yellow-dark'
                           : 'bg-slate-850 text-slate-500 cursor-not-allowed border border-slate-800'
                       }`}
@@ -1954,10 +2438,10 @@ export default function App() {
                   {checkoutStep === 3 && (
                     <button
                       type="button"
-                      disabled={isCheckingDelivery || (!sendAnonymously && (!senderName || !senderPhone || !!senderPhoneError || !senderEmail || !!senderEmailError))}
+                      disabled={isCheckingDelivery || (!sendAnonymously && (!senderName || !!senderPhoneError || !!senderEmailError))}
                       onClick={handlePlaceOrder}
                       className={`flex-1 font-bold py-2.5 rounded-xl text-xs transition duration-150 text-center ${
-                        !isCheckingDelivery && (sendAnonymously || (senderName && senderPhone && !senderPhoneError && senderEmail && !senderEmailError))
+                        !isCheckingDelivery && (sendAnonymously || (senderName && !senderPhoneError && !senderEmailError))
                           ? 'bg-kapruka-yellow text-slate-950 hover:bg-yellow-dark animate-pulse-yellow'
                           : 'bg-slate-850 text-slate-500 cursor-not-allowed border border-slate-800'
                       }`}
