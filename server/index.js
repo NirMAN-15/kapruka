@@ -1794,117 +1794,67 @@ app.post('/api/chat', async (req, res) => {
     }
 
     // Build the prioritized list of configured providers dynamically from environment
+    // ORDER: Fastest inference first → slowest last
     const configuredProviders = [];
 
-    // 1. Gemini keys
-    const geminiKeys = (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
-    geminiKeys.forEach((key, index) => {
-      configuredProviders.push({
-        type: 'gemini',
-        key,
-        name: `Gemini Key #${index + 1}`,
-        models: PROVIDER_MODELS.gemini
-      });
-    });
-
-    // 2. Nvidia keys (Second Priority)
-    const nvidiaKeys = (process.env.NVIDIA_API_KEYS || process.env.NVIDIA_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
-    nvidiaKeys.forEach((key, index) => {
-      configuredProviders.push({
-        type: 'nvidia',
-        key,
-        name: `Nvidia Key #${index + 1}`,
-        models: PROVIDER_MODELS.nvidia
-      });
-    });
-
-    // 3. Groq keys
-    const groqKeys = (process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
-    groqKeys.forEach((key, index) => {
-      configuredProviders.push({
-        type: 'groq',
-        key,
-        name: `Groq Key #${index + 1}`,
-        models: PROVIDER_MODELS.groq
-      });
-    });
-
-
-    // 3. Kimi keys (Moonshot)
-    const kimiKeys = (process.env.KIMI_API_KEYS || process.env.KIMI_API_KEY || process.env.MOONSHOT_API_KEYS || process.env.MOONSHOT_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
-    kimiKeys.forEach((key, index) => {
-      configuredProviders.push({
-        type: 'kimi',
-        key,
-        name: `Kimi Key #${index + 1}`,
-        models: PROVIDER_MODELS.kimi
-      });
-    });
-
-    // 4. GLM keys (Zhipu)
-    const glmKeys = (process.env.GLM_API_KEYS || process.env.GLM_API_KEY || process.env.ZHIPU_API_KEYS || process.env.ZHIPU_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
-    glmKeys.forEach((key, index) => {
-      configuredProviders.push({
-        type: 'glm',
-        key,
-        name: `GLM Key #${index + 1}`,
-        models: PROVIDER_MODELS.glm
-      });
-    });
-
-    // 6. Cerebras keys (fastest free provider)
+    // 1. Cerebras (fastest free provider — ~2000 tok/s)
     const cerebrasKeys = (process.env.CEREBRAS_API_KEYS || process.env.CEREBRAS_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
     cerebrasKeys.forEach((key, index) => {
-      configuredProviders.push({
-        type: 'cerebras',
-        key,
-        name: `Cerebras Key #${index + 1}`,
-        models: PROVIDER_MODELS.cerebras
-      });
+      configuredProviders.push({ type: 'cerebras', key, name: `Cerebras Key #${index + 1}`, models: PROVIDER_MODELS.cerebras });
     });
 
-    // 7. SambaNova keys
+    // 2. Groq (very fast — ~500 tok/s)
+    const groqKeys = (process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
+    groqKeys.forEach((key, index) => {
+      configuredProviders.push({ type: 'groq', key, name: `Groq Key #${index + 1}`, models: PROVIDER_MODELS.groq });
+    });
+
+    // 3. SambaNova (fast)
     const sambanovaKeys = (process.env.SAMBANOVA_API_KEYS || process.env.SAMBANOVA_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
     sambanovaKeys.forEach((key, index) => {
-      configuredProviders.push({
-        type: 'sambanova',
-        key,
-        name: `SambaNova Key #${index + 1}`,
-        models: PROVIDER_MODELS.sambanova
-      });
+      configuredProviders.push({ type: 'sambanova', key, name: `SambaNova Key #${index + 1}`, models: PROVIDER_MODELS.sambanova });
     });
 
-    // 8. Together AI keys
+    // 4. Gemini (good quality, free tier)
+    const geminiKeys = (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
+    geminiKeys.forEach((key, index) => {
+      configuredProviders.push({ type: 'gemini', key, name: `Gemini Key #${index + 1}`, models: PROVIDER_MODELS.gemini });
+    });
+
+    // 5. Nvidia NIM
+    const nvidiaKeys = (process.env.NVIDIA_API_KEYS || process.env.NVIDIA_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
+    nvidiaKeys.forEach((key, index) => {
+      configuredProviders.push({ type: 'nvidia', key, name: `Nvidia Key #${index + 1}`, models: PROVIDER_MODELS.nvidia });
+    });
+
+    // 6. GLM / Zhipu
+    const glmKeys = (process.env.GLM_API_KEYS || process.env.GLM_API_KEY || process.env.ZHIPU_API_KEYS || process.env.ZHIPU_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
+    glmKeys.forEach((key, index) => {
+      configuredProviders.push({ type: 'glm', key, name: `GLM Key #${index + 1}`, models: PROVIDER_MODELS.glm });
+    });
+
+    // 7. Together AI
     const togetherKeys = (process.env.TOGETHER_API_KEYS || process.env.TOGETHER_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
     togetherKeys.forEach((key, index) => {
-      configuredProviders.push({
-        type: 'together',
-        key,
-        name: `Together Key #${index + 1}`,
-        models: PROVIDER_MODELS.together
-      });
+      configuredProviders.push({ type: 'together', key, name: `Together Key #${index + 1}`, models: PROVIDER_MODELS.together });
     });
 
-    // 9. Cohere keys
+    // 8. Kimi / Moonshot
+    const kimiKeys = (process.env.KIMI_API_KEYS || process.env.KIMI_API_KEY || process.env.MOONSHOT_API_KEYS || process.env.MOONSHOT_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
+    kimiKeys.forEach((key, index) => {
+      configuredProviders.push({ type: 'kimi', key, name: `Kimi Key #${index + 1}`, models: PROVIDER_MODELS.kimi });
+    });
+
+    // 9. Cohere
     const cohereKeys = (process.env.COHERE_API_KEYS || process.env.COHERE_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
     cohereKeys.forEach((key, index) => {
-      configuredProviders.push({
-        type: 'cohere',
-        key,
-        name: `Cohere Key #${index + 1}`,
-        models: PROVIDER_MODELS.cohere
-      });
+      configuredProviders.push({ type: 'cohere', key, name: `Cohere Key #${index + 1}`, models: PROVIDER_MODELS.cohere });
     });
 
-    // 10. Anthropic key (skip if placeholder value)
+    // 10. Anthropic (paid, last resort)
     const anthropicKey = process.env.ANTHROPIC_API_KEY;
     if (anthropicKey && !anthropicKey.startsWith('your_') && !anthropicKey.startsWith('sk-ant-placeholder')) {
-      configuredProviders.push({
-        type: 'anthropic',
-        key: anthropicKey,
-        name: 'Anthropic Key',
-        models: PROVIDER_MODELS.anthropic
-      });
+      configuredProviders.push({ type: 'anthropic', key: anthropicKey, name: 'Anthropic Key', models: PROVIDER_MODELS.anthropic });
     }
 
     let response = null;
